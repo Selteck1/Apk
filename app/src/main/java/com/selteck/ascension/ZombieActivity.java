@@ -228,7 +228,7 @@ public class ZombieActivity extends Activity {
         private float clamp(float v,float min,float max) { return Math.max(min,Math.min(max,v)); }
     }
 
-    private static final class GameSession {
+    private final class GameSession {
         final String[] cityNames={"СЕРЫЙ ЦЕНТР","РЖАВЫЙ ПОРТ","СОСНОВКА","НЕОН-СИТИ","ЖЕЛЕЗНЫЙ РАЙОН","СТОЛИЦА КАРАНТИНА"};
         final String[] gunNames={"GLOCK 17","ПОМПОВИК","SMG-9","AR-15","M700"};
         final int[] gunDamage={24,15,15,30,92}, gunRate={250,620,100,145,820}, gunMag={12,6,30,30,5};
@@ -463,7 +463,6 @@ public class ZombieActivity extends Activity {
                 case 10: armor=Math.min(100,armor+20);cash+=10;toast("РАЗГРУЗКА: +20 БРОНИ");break;
             }
             addXp(12);
-            lootedCount++;
             if(p.id>=0 && p.insideBuilding==-1)prefs.edit().putBoolean("street_"+p.id,true).apply();
         }
         private void shoot(long now) {
@@ -565,7 +564,7 @@ public class ZombieActivity extends Activity {
             long now=System.currentTimeMillis();if(now-lastInteract<280)return;lastInteract=now;
             if(dead){respawn();return;}
             if(inside) {
-                if(pz>7.0f){exitInterior();return;}
+                if(pz>8.4f){exitInterior();return;}
                 Pickup best=null;float bd=3.0f;
                 for(Pickup p:pickups)if(!p.taken&&p.insideBuilding==insideBuilding){float d=distance(px,pz,p.x,p.z);if(d<bd){best=p;bd=d;}}
                 if(best!=null)collect(best);else toast("ОБЫСКАЙ КОМНАТУ: ИЩИ СВЕТЯЩИЙСЯ ЛУТ");
@@ -584,13 +583,13 @@ public class ZombieActivity extends Activity {
         }
         private void enterInterior(Building b) {
             inside=true;insideBuilding=b.id;insideCity=b.city;insideExitX=px;insideExitZ=pz;
-            px=0;pz=8.2f;yaw=0;moveX=moveY=aimX=aimY=0;aimActive=false;firing=false;
+            px=0;pz=5.8f;yaw=0;moveX=moveY=aimX=aimY=0;aimActive=false;firing=false;
             if(!lootSpawned[b.id]) {
                 lootSpawned[b.id]=true;
                 int[] kinds;
                 if(b.poi==0)kinds=new int[]{0,0,9,1,2,8};
                 else if(b.poi==1)kinds=new int[]{1,2,1,8,3,0};
-                else if(b.poi==2)kinds=new int[]{3+(Math.min(4,b.city),4,1,1,8,2};
+                else if(b.poi==2)kinds=new int[]{3+Math.min(4,b.city),4,1,1,8,2};
                 else if(b.poi==3)kinds=new int[]{0,9,8,1,2,6};
                 else kinds=new int[]{1,1,8,2,4,5};
                 float[][] loc={{-5,2},{5,2},{-5,-3},{5,-3},{0,-7},{0,0}};
