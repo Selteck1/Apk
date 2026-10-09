@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
             super(MainActivity.this);
             prefs=getSharedPreferences("ascension_save_v2",MODE_PRIVATE);
             level=prefs.getInt("level",1); xp=prefs.getInt("xp",0); gold=prefs.getInt("gold",180);
-            maxHp=prefs.getInt("maxHp",140); hp=prefs.getInt("hp",maxHp); attack=prefs.getInt("attack",20);
+            maxHp=prefs.getInt("maxHp",140); hp=prefs.getInt("hp",maxHp); maxMana=prefs.getInt("maxMana",100); mana=prefs.getInt("mana",maxMana); dailyClaimed=prefs.getInt("dailyClaimed",0); attack=prefs.getInt("attack",20);
             defense=prefs.getInt("defense",6); kills=prefs.getInt("kills",0); skillPoints=prefs.getInt("skillPoints",0);
             strength=prefs.getInt("strength",0); vitality=prefs.getInt("vitality",0); focus=prefs.getInt("focus",0);
             crit=prefs.getInt("crit",5); potions=prefs.getInt("potions",2); shards=prefs.getInt("shards",0);
@@ -57,6 +57,8 @@ public class MainActivity extends Activity {
             if(enemyHp<1) enemyHp=enemyMax;
             enemyName=boss?"THE HOLLOW KING":enemyLabel(enemyType);
             eventSeed=prefs.getLong("eventSeed",System.currentTimeMillis()/86400000L);
+            long today=System.currentTimeMillis()/86400000L; if(eventSeed!=today){eventSeed=today;eventProgress=0;eventClaimed=0;dailyClaimed=0;}
+            mana=Math.max(0,Math.min(maxMana,mana));
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
             initSounds();
             setContentDescription("PROJECT ASCENSION dark fantasy role-playing game");
@@ -106,7 +108,7 @@ public class MainActivity extends Activity {
         void center(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));c.drawText(s,x-p.measureText(s)/2,y,p);}
         void bar(float x,float y,float w,float h,float v,int bg,int fg){rect(x,y,x+w,y+h,bg,h/2);if(v>0)rect(x,y,x+Math.max(h,Math.min(1,v)*w),y+h,fg,h/2);}
         void glow(float x,float y,float radius,int co,float blur){paint(co);p.setMaskFilter(new BlurMaskFilter(blur,BlurMaskFilter.Blur.NORMAL));c.drawCircle(x,y,radius,p);p.setMaskFilter(null);}
-        void save(){prefs.edit().putInt("level",level).putInt("xp",xp).putInt("gold",gold).putInt("hp",hp).putInt("maxHp",maxHp)
+        void save(){prefs.edit().putInt("level",level).putInt("xp",xp).putInt("gold",gold).putInt("hp",hp).putInt("maxHp",maxHp).putInt("mana",mana).putInt("maxMana",maxMana).putInt("dailyClaimed",dailyClaimed)
             .putInt("attack",attack).putInt("defense",defense).putInt("kills",kills).putInt("skillPoints",skillPoints)
             .putInt("strength",strength).putInt("vitality",vitality).putInt("focus",focus).putInt("crit",crit).putInt("potions",potions)
             .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
@@ -191,8 +193,8 @@ public class MainActivity extends Activity {
             glow(190,388,80,color(boss?"#B12F67":"#7547CF"),25);
             paint(color("#3B2B70"));c.drawOval(72,380,315,405,p);
             // enemy detailed, each archetype different silhouette
-            if(boss) drawBoss(245,345,1.15f);
-            else drawEnemy(245,350,enemyType%5,1.0f);
+            if(boss) drawBoss(245,345+(float)Math.sin(System.currentTimeMillis()/260.0)*3.0f,1.15f);
+            else drawEnemy(245,350+(float)Math.sin(System.currentTimeMillis()/230.0)*2.5f,enemyType%5,1.0f);
             drawHero(125,358,0.83f,hitTicks>0);
             // enemy nameplate
             rect(29,191,209,266,color("#10101F"),10);
@@ -213,7 +215,7 @@ public class MainActivity extends Activity {
             gradient(18,507,372,568,color("#A46BFF"),color("#5633B3"),13);
             center("⚔  STRIKE",195,531,16,Color.WHITE,true);
             center("Tap to attack  •  combo builds with each hit",195,551,9,color("#E8D9FF"),false);
-            rect(18,580,130,633,color("#24213E"),10);txt("✦ SKILL",29,598,10,color("#D4B8FF"),true);txt("RIFT BURST",29,613,8,color("#9B94C2"),false);txt("Cost: 25 mana",29,625,7,color("#9B94C2"),false);
+            rect(18,580,130,633,color("#24213E"),10);txt("✦ SKILL",29,598,10,color("#D4B8FF"),true);txt("RIFT BURST",29,613,8,color("#9B94C2"),false);txt("MP "+mana+"/"+maxMana,29,625,7,color("#9B94C2"),false);
             rect(141,580,251,633,color("#24213E"),10);txt("✚ POTION",152,598,10,color("#FFB4CE"),true);txt("Heal 45%",152,613,8,color("#9B94C2"),false);txt("Have: "+potions,152,625,7,color("#9B94C2"),false);
             rect(262,580,372,633,color("#24213E"),10);txt("◈ EVENT",273,598,10,color("#A6EDFF"),true);txt("Rift invasion",273,613,8,color("#9B94C2"),false);txt(eventProgress+"/10 kills",273,625,7,color("#9B94C2"),false);
             rect(18,646,372,715,color("#111324"),10);
@@ -363,6 +365,7 @@ public class MainActivity extends Activity {
                 else if(y>=316&&y<=407&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
                 else if(y>=420&&y<=511&&bossKills>prefs.getInt("claimedBossKills",0)){shards+=2;prefs.edit().putInt("claimedBossKills",bossKills).apply();gold+=120;play(sWin);save();}
                 else if(y>=524&&y<=615&&shards>=3){shards-=3;potions++;play(sBuy);save();}
+                else if(y>=628&&y<=715&&kills>0&&dailyClaimed==0){dailyClaimed=1;gold+=55;potions++;play(sWin);save();}
             }else if(tab==4){
                 if(y>=199&&y<=299){region=0;spawnEnemy();}
                 else if(y>=311&&y<=411&&level>=5){region=1;spawnEnemy();}
@@ -373,7 +376,7 @@ public class MainActivity extends Activity {
         }
         void attackEnemy(){
             long now=System.currentTimeMillis();if(now-lastAttackAt<160)return;lastAttackAt=now;
-            combo=Math.min(99,combo+1);hitTicks=4;shakeTicks=3;
+            combo=Math.min(99,combo+1);hitTicks=4;shakeTicks=3;mana=Math.min(maxMana,mana+4+focus);
             boolean critical=rng.nextInt(100)<Math.min(70,crit+focus*2);
             int damage=actualAttack()+rng.nextInt(Math.max(3,actualAttack()/3+1));if(critical)damage=(int)(damage*1.85);
             if(combo%4==0)damage+=actualAttack()/2+strength*6;
@@ -391,7 +394,7 @@ public class MainActivity extends Activity {
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
             if(boss){bossKills++;play(sWin);gold+=60;maxHp+=8;attack+=2;}
-            if(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
+            if(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;maxMana+=12;mana=maxMana;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
             hp=Math.min(actualMaxHp(),hp+Math.max(8,actualMaxHp()/12));
             spawnEnemy();save();
         }
@@ -402,7 +405,8 @@ public class MainActivity extends Activity {
             combo=0;save();
         }
         void riftBurst(){
-            if(focus+strength+vitality==0&&skillPoints==0){play(sClick);return;}
+            if(mana<25){play(sClick);return;}
+            mana-=25;
             int damage=(int)(actualAttack()*(1.75+strength*0.35));enemyHp-=damage;play(sSkill);flashTicks=5;
             hp=Math.min(actualMaxHp(),hp+vitality*4);
             if(enemyHp<=0)victory();else hp=Math.max(1,hp-Math.max(1,8-actualDefense()));
@@ -420,7 +424,7 @@ public class MainActivity extends Activity {
             if(skillPoints<=0){play(sClick);return;}skillPoints--;
             if(type==0){strength++;attack+=1;}
             else if(type==1){vitality++;maxHp+=18;hp+=18;}
-            else if(type==2){focus++;crit+=2;}
+            else if(type==2){focus++;crit+=2;maxMana+=10;mana+=10;}
             else {crit+=3;}
             play(sSkill);save();
         }
