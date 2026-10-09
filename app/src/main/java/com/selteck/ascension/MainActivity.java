@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
             loadArt();makeLandmarks();generateProps();loadGame();initAudio();
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
             setFocusable(true);setContentDescription("ASCENSION FRONTIER top down exploration shooter");
-            if(bossSpawned[currentZone()]&&!bossDefeated[currentZone()])spawnGuardian(currentZone());
+            for(int z=0;z<6;z++)if(bossSpawned[z]&&!bossDefeated[z])spawnGuardian(z);
             for(int i=0;i<7;i++)spawnMobAroundPlayer(false);
             lastUpdate=System.currentTimeMillis();postInvalidateDelayed(33);
         }
@@ -304,12 +304,31 @@ public class MainActivity extends Activity {
         void drawMobs(){
             long now=System.currentTimeMillis();
             for(Mob m:mobs){if(!m.alive||!visible(m.x,m.y,90))continue;float bob=(float)Math.sin(now/160.0+m.x)*2;int a=accent(m.zone);circle(m.x,m.y+12,m.big?32:17,Color.argb(110,0,0,0));
-                if(m.big&&bossArt[m.zone]!=null){sprite(bossArt[m.zone],m.x-42,m.y-60+bob,84,110);glow(m.x,m.y-22,m.hp/(float)m.maxHp*12+5,a,8);}
-                else if(!m.big&&monsterArt[m.type%7]!=null&&false){sprite(monsterArt[m.type%7],m.x-23,m.y-30+bob,46,60);}
-                else drawMonster(m,bob,now);
+                if(m.big)drawGuardian(m,bob,now);else drawMonster(m,bob,now);
                 if(m.big||m.hp<m.maxHp){float w=m.big?100:35,top=m.y-(m.big?69:37);box(m.x-w/2-2,top-2,m.x+w/2+2,top+7,col("#11131B"),3);box(m.x-w/2,top,m.x+w/2,top+5,col("#5B2937"),2);box(m.x-w/2,top,m.x-w/2+w*Math.max(0,m.hp/(float)m.maxHp),top+5,m.big?col("#FE567E"):col("#E3A26B"),2);}
                 if(m.big){centre(new String[]{"THE MOSS TITAN","CINDER BRUTE","FROST QUEEN","DROWNED WARDEN","STAR EATER","THE UNMAKER"}[m.zone],m.x,m.y-78,9,col("#FFD7ED"),true);}
             }
+        }
+        void drawGuardian(Mob m,float bob,long now){
+            float x=m.x,y=m.y+bob;int a=accent(m.zone);circle(x,y+14,40,Color.argb(130,0,0,0));
+            glow(x,y,45,Color.argb(100,Color.red(a),Color.green(a),Color.blue(a)),20);
+            if(m.zone==0){
+                for(int k=0;k<6;k++){float an=k*1.047f+(float)Math.sin(now/300.0)*0.12f;line(x+(float)Math.cos(an)*17,y+(float)Math.sin(an)*17,x+(float)Math.cos(an)*43,y+(float)Math.sin(an)*43,col("#426C4A"),8);circle(x+(float)Math.cos(an)*43,y+(float)Math.sin(an)*43,5,col("#8ACC78"));}
+            } else if(m.zone==1){
+                for(int k=0;k<4;k++){float an=k*1.57f;line(x+(float)Math.cos(an)*15,y+(float)Math.sin(an)*15,x+(float)Math.cos(an)*38,y+(float)Math.sin(an)*38,col("#9C4C30"),11);glow(x+(float)Math.cos(an)*38,y+(float)Math.sin(an)*38,6,col("#FF9E4B"),9);}
+            } else if(m.zone==2){
+                for(int k=0;k<6;k++){float an=k*1.047f;Path ice=new Path();ice.moveTo(x+(float)Math.cos(an)*15,y+(float)Math.sin(an)*15);ice.lineTo(x+(float)Math.cos(an)*36,y+(float)Math.sin(an)*36);ice.lineTo(x+(float)Math.cos(an+0.2f)*17,y+(float)Math.sin(an+0.2f)*17);ice.close();paint(col("#83D7F2"));c.drawPath(ice,p);}
+            } else if(m.zone==3){
+                for(int k=0;k<5;k++){float an=k*1.256f;line(x+(float)Math.cos(an)*17,y+(float)Math.sin(an)*17,x+(float)Math.cos(an)*43,y+(float)Math.sin(an)*43,col("#256E6F"),7);circle(x+(float)Math.cos(an)*42,y+(float)Math.sin(an)*42,5,col("#53DCC7"));}
+            } else if(m.zone==4){
+                for(int k=0;k<4;k++){float an=k*1.57f+0.4f;line(x+(float)Math.cos(an)*17,y+(float)Math.sin(an)*17,x+(float)Math.cos(an)*45,y+(float)Math.sin(an)*45,col("#62479C"),9);circle(x+(float)Math.cos(an)*45,y+(float)Math.sin(an)*45,7,col("#C5A5FF"));}
+            } else{
+                for(int k=0;k<8;k++){float an=k*0.785f;line(x+(float)Math.cos(an)*15,y+(float)Math.sin(an)*15,x+(float)Math.cos(an)*43,y+(float)Math.sin(an)*43,col("#7E2753"),8);circle(x+(float)Math.cos(an)*43,y+(float)Math.sin(an)*43,6,col("#FF6CA9"));}
+            }
+            circle(x,y,29,col("#171C2A"));circle(x,y,23,m.zone==2?col("#56829B"):col("#49324D"));circle(x,y,16,col("#252A39"));
+            for(int k=0;k<3;k++){float an=k*2.094f+(float)Math.sin(now/390.0)*0.16f;circle(x+(float)Math.cos(an)*17,y+(float)Math.sin(an)*17,4,a);}
+            circle(x,y,8,col("#0A101B"));circle(x-3,y-2,2,col("#FFB9CC"));circle(x+3,y-2,2,col("#FFB9CC"));
+            paint(Color.argb(85,Color.red(a),Color.green(a),Color.blue(a)));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(x,y,51+(float)Math.sin(now/180.0)*2,p);p.setStyle(Paint.Style.FILL);
         }
         void drawMonster(Mob m,float bob,long now){
             float x=m.x,y=m.y+bob;int base=m.type==0?col("#4B8760"):m.type==1?col("#A45A46"):m.type==2?col("#467F9A"):m.type==3?col("#55466F"):m.type==4?col("#8C613D"):m.type==5?col("#536A7A"):col("#743E6F");
@@ -382,6 +401,8 @@ public class MainActivity extends Activity {
             circle(105,430,69,Color.argb(74,210,231,243));circle(105,430,56,Color.argb(62,15,23,35));paint(Color.argb(120,222,231,242));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(105,430,69,p);p.setStyle(Paint.Style.FILL);
             float mx=movePid>=0?moveTouchX:105,my=movePid>=0?moveTouchY:430;float dx=mx-105,dy=my-430,dl=(float)Math.hypot(dx,dy);if(dl>48){mx=105+dx*48/dl;my=430+dy*48/dl;}circle(mx,my,26,Color.argb(155,148,180,197));circle(mx-5,my-7,7,Color.argb(100,255,255,255));
             centre("MOVE",105,511,9,Color.argb(170,240,247,255),true);
+            // Visible medkit button with a separate touch target.
+            circle(55,340,29,Color.argb(180,49,132,93));stroke(26,311,84,369,col("#A2F0C8"),29,2);centre("+",55,347,23,Color.WHITE,true);centre("MED",55,378,8,col("#B8F7D5"),true);
             // Aim control
             circle(770,430,58,Color.argb(64,211,232,252));paint(Color.argb(115,210,231,245));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(770,430,58,p);p.setStyle(Paint.Style.FILL);
             float ax=aimPid>=0?aimTouchX:770,ay=aimPid>=0?aimTouchY:430,adx=ax-770,ady=ay-430,adl=(float)Math.hypot(adx,ady);if(adl>41){ax=770+adx*41/adl;ay=430+ady*41/adl;}circle(ax,ay,22,Color.argb(165,211,224,239));line(770,430,ax,ay,Color.argb(110,255,255,255),2);centre("AIM",770,511,9,Color.argb(175,240,247,255),true);
@@ -398,7 +419,7 @@ public class MainActivity extends Activity {
         void drawFullMap(){
             box(0,0,W,H,Color.argb(235,4,7,12),0);
             centre("THE SHATTERED FRONTIER",480,40,20,Color.WHITE,true);centre("Explore, stabilise relays, open supply caches and defeat each regional guardian.",480,59,10,col("#B4C3D1"),false);
-            float sc=0.066f,ww=WORLD_W*sc,hh=WORLD_H*sc,ox=(W-ww)/2,oy=82;
+            float sc=0.046f,ww=WORLD_W*sc,hh=WORLD_H*sc,ox=(W-ww)/2,oy=83;
             for(int i=0;i<6;i++){int row=i<3?0:1,gc=row==0?i:5-i;float l=ox+gc*ZONE*sc,t=oy+row*ZONE*sc;box(l,t,l+ZONE*sc,t+ZONE*sc,groundColor(i),0);stroke(l,t,l+ZONE*sc,t+ZONE*sc,accent(i),0,2);centre(zoneName(i),l+ZONE*sc/2,t+22,10,Color.WHITE,true);}
             for(Landmark q:points){int co=q.type==0?(q.used?col("#5D6878"):col("#7FE6BA")):q.type==1?(q.used?col("#5D6878"):col("#F1CD75")):q.type==2?(bossDefeated[q.zone]?col("#687780"):col("#FF698C")):col("#F1A460");circle(ox+q.x*sc,oy+q.y*sc,q.type==2?5:3,co);}
             for(Mob m:mobs)if(m.alive)circle(ox+m.x*sc,oy+m.y*sc,m.big?5:2,col("#FF667E"));
