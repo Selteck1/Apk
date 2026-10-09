@@ -383,12 +383,9 @@ public class ZombieActivity extends Activity {
             float mx=moveX,my=moveY,magMove=(float)Math.sqrt(mx*mx+my*my);
             if(magMove>1){mx/=magMove;my/=magMove;}
             float aimMagnitude=(float)Math.sqrt(aimX*aimX+aimY*aimY);
+            // The right stick owns camera/aim heading. Releasing it keeps the last heading stable,
+            // so holding a side-movement stick does not make the camera spin around the player.
             if(aimActive && aimMagnitude>0.13f) yaw=(float)Math.atan2(aimX,aimY);
-            else if(magMove>0.18f) {
-                float worldX=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
-                float worldZ=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
-                yaw=(float)Math.atan2(worldX,-worldZ);
-            }
             float moveSpeed=(sprinting?7.8f:4.7f)+speedBonus;
             float wx=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
             float wz=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
