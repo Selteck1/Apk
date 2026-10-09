@@ -7,6 +7,7 @@ import android.graphics.*;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.media.MediaPlayer;
+import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 import android.view.View;
 import java.io.File;
@@ -37,6 +38,8 @@ public class MainActivity extends Activity {
         int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins, weaponCollection=1, armorCollection=1;
         int[] ownedWeaponPower=new int[8], ownedWeaponRarity=new int[8], ownedArmorPower=new int[8], ownedArmorRarity=new int[8];
         int[] regionKills=new int[6], regionBosses=new int[6];
+        Bitmap[] realmArt=new Bitmap[6], mobArt=new Bitmap[7], bossArt=new Bitmap[6], weaponArt=new Bitmap[8], armorArt=new Bitmap[8], caseArt=new Bitmap[3];
+        Bitmap heroIdleArt, heroAttackArt, heroJumpArt;
         float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
@@ -70,10 +73,19 @@ public class MainActivity extends Activity {
             long today=System.currentTimeMillis()/86400000L; if(eventSeed!=today){eventSeed=today;eventProgress=0;eventClaimed=0;dailyClaimed=0;}
             mana=Math.max(0,Math.min(maxMana,mana));
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
-            initSounds(); initAmbient();
+            initSounds(); initAmbient(); loadArt();
             setContentDescription("PROJECT ASCENSION dark fantasy role-playing game");
             postInvalidateDelayed(40);
         }
+        Bitmap vectorBitmap(int id,int w,int h){try{Drawable d=getResources().getDrawable(id);d=d.mutate();Bitmap b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);Canvas cc=new Canvas(b);d.setBounds(0,0,w,h);d.draw(cc);return b;}catch(Exception ex){return null;}}
+        Bitmap crop(Bitmap b,int x,int y,int w,int h){try{return b==null?null:Bitmap.createBitmap(b,x,y,w,h);}catch(Exception ex){return null;}}
+        void loadArt(){
+            Bitmap ws=vectorBitmap(R.drawable.art_worlds,390,1500);for(int i=0;i<6;i++)realmArt[i]=crop(ws,0,i*250,390,250);
+            Bitmap hs=vectorBitmap(R.drawable.art_heroes,96,384);heroIdleArt=crop(hs,0,0,96,128);heroAttackArt=crop(hs,0,128,96,128);heroJumpArt=crop(hs,0,256,96,128);
+            Bitmap es=vectorBitmap(R.drawable.art_enemies,384,512);for(int i=0;i<7;i++)mobArt[i]=crop(es,(i%4)*96,(i/4)*128,96,128);for(int i=0;i<6;i++){int ix=7+i;bossArt[i]=crop(es,(ix%4)*96,(ix/4)*128,96,128);}
+            Bitmap its=vectorBitmap(R.drawable.art_items,400,384);for(int i=0;i<8;i++){weaponArt[i]=crop(its,(i%5)*80,(i/5)*96,80,96);int j=8+i;armorArt[i]=crop(its,(j%5)*80,(j/5)*96,80,96);}for(int i=0;i<3;i++){int j=16+i;caseArt[i]=crop(its,(j%5)*80,(j/5)*96,80,96);}
+        }
+        void drawSprite(Bitmap b,float l,float t,float w,float h){if(b==null)return;paint(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(b,null,new RectF(l,t,l+w,t+h),p);}
         void initSounds() {
             try {
                 AudioAttributes aa=new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
