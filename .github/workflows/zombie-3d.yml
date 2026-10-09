@@ -1,0 +1,44 @@
+name: Build Dead District 3D APK
+
+on:
+  push:
+    branches:
+      - zombie-apocalypse-3d
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: zombie-apocalypse-3d
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Gradle 8.9
+        shell: bash
+        run: |
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o "$RUNNER_TEMP/gradle.zip"
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Prepare named APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/DEAD-DISTRICT-3D.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-district-3d-apk
+          path: dist/DEAD-DISTRICT-3D.apk
+          if-no-files-found: error
+          retention-days: 14
