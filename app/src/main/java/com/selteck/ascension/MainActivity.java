@@ -179,7 +179,8 @@ public class MainActivity extends Activity {
             glow(0,0,23,color("#3A2868"),14);
             paint(color("#25223F"));c.drawCircle(0,0,22,p);
             paint(color("#C8A5FF"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.5f);c.drawCircle(0,0,21,p);p.setStyle(Paint.Style.FILL);
-            drawHero(0,4,0.48f,false);
+            if(heroIdleArt!=null){c.save();Path clip=new Path();clip.addCircle(0,0,20,Path.Direction.CW);c.clipPath(clip);drawSprite(heroIdleArt,-20,-27,40,54);c.restore();}
+            else drawHero(0,4,0.48f,false);
             c.restore();
         }
         int realmAccent(){int[] a={color("#9E72EF"),color("#E48743"),color("#6ECDF3"),color("#42D8CB"),color("#B49AFF"),color("#F05BA6")};return a[Math.floorMod(region,a.length)];}
@@ -212,18 +213,19 @@ public class MainActivity extends Activity {
         void battle(){
             txt("ACTIVE EXPEDITION",18,168,9,color("#8F8AB7"),true);
             rect(18,179,372,429,color("#101225"),16);
-            p.setShader(new LinearGradient(18,180,370,429,Color.rgb((Color.red(realmAccent())+Color.red(color("#161527")))/2,(Color.green(realmAccent())+Color.green(color("#161527")))/2,(Color.blue(realmAccent())+Color.blue(color("#161527")))/2),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);
-            // moon, ruins, mist layers
-            glow(310,224,29,color(boss?"#D14B7C":"#A3A0D5"),12);
-            int orb=region==1?color("#F2A167"):region==2?color("#9FE8FF"):region==3?color("#54DCD0"):region==4?color("#CAB3FF"):region==5?color("#F57EB2"):color("#C4C3DF");paint(orb);c.drawCircle(310,224,23,p);paint(color("#AAA9C8"));c.drawCircle(303,218,4,p);c.drawCircle(319,231,6,p);
-            paint(color("#17172D"));Path ruins=new Path();ruins.moveTo(18,354);ruins.lineTo(48,307);ruins.lineTo(61,331);ruins.lineTo(79,281);ruins.lineTo(100,354);ruins.lineTo(126,325);ruins.lineTo(147,354);ruins.lineTo(177,300);ruins.lineTo(204,355);ruins.lineTo(233,329);ruins.lineTo(257,355);ruins.lineTo(289,302);ruins.lineTo(315,355);ruins.lineTo(344,319);ruins.lineTo(372,346);ruins.lineTo(372,429);ruins.lineTo(18,429);ruins.close();c.drawPath(ruins,p);
-            paint(color("#22203F"));Path ground=new Path();ground.moveTo(18,373);ground.quadTo(190,346,372,378);ground.lineTo(372,429);ground.lineTo(18,429);ground.close();c.drawPath(ground,p);
-            glow(190,388,80,realmAccent(),25);
-            paint(Color.rgb(Color.red(realmAccent())/2,Color.green(realmAccent())/2,Color.blue(realmAccent())/2));c.drawOval(72,380,315,405,p);
+            c.save();Path arenaClip=new Path();arenaClip.addRoundRect(18,179,372,429,16,16,Path.Direction.CW);c.clipPath(arenaClip);
+            if(realmArt[Math.floorMod(region,realmArt.length)]!=null){drawSprite(realmArt[Math.floorMod(region,realmArt.length)],18,179,354,250);paint(Color.argb(38,7,7,22));c.drawRect(18,179,372,429,p);}
+            else{p.setShader(new LinearGradient(18,180,370,429,Color.rgb((Color.red(realmAccent())+Color.red(color("#161527")))/2,(Color.green(realmAccent())+Color.green(color("#161527")))/2,(Color.blue(realmAccent())+Color.blue(color("#161527")))/2),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);}
+            paint(Color.argb(185,5,7,16));Path ground=new Path();ground.moveTo(18,374);ground.quadTo(190,347,372,378);ground.lineTo(372,429);ground.lineTo(18,429);ground.close();c.drawPath(ground,p);
+            glow(190,390,82,realmAccent(),22);paint(Color.rgb(Color.red(realmAccent())/3,Color.green(realmAccent())/3,Color.blue(realmAccent())/3));c.drawOval(65,380,322,408,p);
+            c.restore();
             // enemy detailed, each archetype different silhouette
-            if(boss) drawBoss(enemyX,345+(float)Math.sin(System.currentTimeMillis()/260.0)*3.0f,1.15f);
-            else drawEnemy(enemyX,350+(float)Math.sin(System.currentTimeMillis()/230.0)*2.5f,enemyType%7,1.0f);
-            drawHero(heroX,358-(System.currentTimeMillis()<jumpUntil?42:0),0.83f,hitTicks>0);
+            long nowArt=System.currentTimeMillis();float enemyBob=(float)Math.sin(nowArt/(boss?260.0:230.0))*3.0f;
+            if(boss){if(bossArt[Math.floorMod(region,bossArt.length)]!=null)drawSprite(bossArt[Math.floorMod(region,bossArt.length)],enemyX-48,281+enemyBob,96,132);else drawBoss(enemyX,345+enemyBob,1.15f);}
+            else{if(mobArt[Math.floorMod(enemyType,mobArt.length)]!=null)drawSprite(mobArt[Math.floorMod(enemyType,mobArt.length)],enemyX-40,294+enemyBob,80,116);else drawEnemy(enemyX,350+enemyBob,enemyType%7,1.0f);}
+            Bitmap heroFrame=nowArt<jumpUntil?heroJumpArt:(hitTicks>0?heroAttackArt:heroIdleArt);
+            if(heroFrame!=null){float heroTop=nowArt<jumpUntil?273:306;drawSprite(heroFrame,heroX-33,heroTop,66,104);line(heroX+13,353,heroX+27,326,rarityColor(weaponRarity),2.5f);}
+            else drawHero(heroX,358-(nowArt<jumpUntil?42:0),0.83f,hitTicks>0);
             if(hitTicks>0){ paint(Color.argb(235,220,242,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);c.drawArc(heroX+8,317,heroX+93,396,-72+(10-hitTicks)*17,105,false,p);p.setStyle(Paint.Style.FILL); for(int k=0;k<7;k++){float a=(System.currentTimeMillis()/19+k*51)%360;float rr=16+(k*7);paint(Color.argb(150,198,145,255));c.drawCircle(heroX+43+(float)Math.cos(Math.toRadians(a))*rr,355+(float)Math.sin(Math.toRadians(a))*rr,1.5f+(k%3),p);} }
             // enemy nameplate
             rect(29,191,209,266,color("#10101F"),10);
@@ -327,7 +329,12 @@ public class MainActivity extends Activity {
         }
         void stat(int x,int y,String name,Object val,int co){rect(x,y,x+174,y+54,color("#17172F"),10);txt(name,x+12,y+18,8,color("#8F8BAF"),true);txt(String.valueOf(val),x+12,y+42,18,co,true);}
         void itemCard(int l,int t,int r,int b,String icon,String name,String desc,int cost,int type){
-            rect(l,t,r,b,color("#1B1A35"),10);txt(icon,l+9,t+21,14,type==3?color("#FF9EBB"):color("#C6A6FF"),true);txt(name,l+30,t+19,8,Color.WHITE,true);txt(desc,l+9,t+35,7,color("#A5A1C4"),false);
+            rect(l,t,r,b,color("#1B1A35"),10);
+            if(type==0&&weaponArt[weaponId]!=null)drawSprite(weaponArt[weaponId],l+5,t+4,24,32);
+            else if(type==1&&armorArt[armorId]!=null)drawSprite(armorArt[armorId],l+5,t+4,24,32);
+            else if(type==2&&caseArt[1]!=null)drawSprite(caseArt[1],l+5,t+4,24,32);
+            else txt(icon,l+9,t+21,14,type==3?color("#FF9EBB"):color("#C6A6FF"),true);
+            txt(name,l+30,t+19,8,Color.WHITE,true);txt(desc,l+9,t+35,7,color("#A5A1C4"),false);
             rect(r-58,t+43,r-7,b-5,color("#393057"),6);center(type==3?"BUY":cost+" G",r-32,t+57,7,color("#F0D48C"),true);
         }
         String regionName(){String[] n={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};return n[Math.floorMod(region,n.length)];}
@@ -336,7 +343,12 @@ public class MainActivity extends Activity {
         String[] armorNames(){return new String[]{"Warden Coat","Ashguard","Frostplate","Tidebound Mail","Astral Mantle","Hollow Aegis","Riftwalker Suit","Eclipse Crown"};}
         String rarityName(int r){String[] n={"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};return n[Math.max(0,Math.min(5,r))];}
         int rarityColor(int r){int[] a={color("#B6B8C8"),color("#72D6A3"),color("#69B7FF"),color("#C18BFF"),color("#F0C96E"),color("#FF6FB1")};return a[Math.max(0,Math.min(5,r))];}
-        void chestArt(float x,float y,float scale,int rarity,boolean open){c.save();c.translate(x,y);c.scale(scale,scale);int rc=rarityColor(rarity);glow(0,12,29,rc,14);paint(color("#151324"));Path base=new Path();base.moveTo(-27,-2);base.lineTo(27,-2);base.lineTo(23,22);base.lineTo(-23,22);base.close();c.drawPath(base,p);gradient(-27,-13,27,7,color("#5D402E"),color("#201B33"),5);paint(color("#A77D4E"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(-27,-14,27,9,5,5,p);p.setStyle(Paint.Style.FILL);rect(-5,-14,5,22,rc,2);rect(-24,4,24,8,color("#D6B16D"),2);if(open){c.save();c.rotate(-36,-16,-11);gradient(-27,-25,27,-9,color("#8A60C2"),color("#302244"),5);outline(-27,-25,27,-9,rc,5,2);c.restore();glow(0,-18,14,rc,15);for(int i=0;i<7;i++){float a=(i*53+System.currentTimeMillis()/11)%360;paint(Color.argb(220,255,238,180));c.drawCircle((float)Math.cos(Math.toRadians(a))*(12+i%3*7),-21+(float)Math.sin(Math.toRadians(a))*(8+i%3*3),1.5f,p);}}else{rect(-5,-7,5,1,rc,2);}c.restore();}
+        void chestArt(float x,float y,float scale,int rarity,boolean open){
+            c.save();c.translate(x,y);c.scale(scale,scale);int rc=rarityColor(rarity);glow(0,8,27,rc,13);
+            Bitmap art=caseArt[Math.max(0,Math.min(2,rarity-1))];
+            if(art!=null){drawSprite(art,-32,-38,64,76);if(open){glow(0,-20,15,rc,14);for(int i=0;i<9;i++){float a=(i*41+System.currentTimeMillis()/10)%360;paint(Color.argb(230,255,239,188));c.drawCircle((float)Math.cos(Math.toRadians(a))*(10+i%4*6),-20+(float)Math.sin(Math.toRadians(a))*(9+i%3*4),1.5f+(i%2),p);}}c.restore();return;}
+            paint(color("#151324"));Path base=new Path();base.moveTo(-27,-2);base.lineTo(27,-2);base.lineTo(23,22);base.lineTo(-23,22);base.close();c.drawPath(base,p);gradient(-27,-13,27,7,color("#5D402E"),color("#201B33"),5);paint(color("#A77D4E"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(-27,-14,27,9,5,5,p);p.setStyle(Paint.Style.FILL);rect(-5,-14,5,22,rc,2);rect(-24,4,24,8,color("#D6B16D"),2);if(open){glow(0,-18,14,rc,15);}c.restore();
+        }
         void cases(){
             txt("RELIC CASES",18,168,15,Color.WHITE,true);txt("Every opening is permanent loot • duplicates become gold",18,186,8,color("#9792BB"),false);
             int[] co={color("#77798A"),color("#4B9FC4"),color("#A84FC7")};String[] names={"WANDERER CACHE","ASTRAL VAULT","ECLIPSE CASE"};String[] cost={"120 GOLD","1 SHARD","300 GOLD + 2 SHARDS"};String[] detail={"Common → Epic","Rare → Mythic","Epic → Mythic"};
@@ -408,11 +420,11 @@ public class MainActivity extends Activity {
         }
         void realmCard(int l,int t,int r,int b,int idx,String name,String desc,int co,boolean unlocked){
             gradient(l,t,r,b,co,color("#111322"),9);outline(l,t,r,b,unlocked?co:color("#353247"),9,1);
-            glow(r-42,t+33,19,co,10);
-            paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);
+            if(realmArt[idx]!=null){drawSprite(realmArt[idx],r-84,t+4,80,68);rect(r-84,t+4,r-4,t+72,Color.argb(38,4,4,16),6);outline(r-84,t+4,r-4,t+72,co,6,1);}
+            else{glow(r-42,t+33,19,co,10);paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);}
             txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
             rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
-            center(!unlocked?"BOSS GATE":(regionKills[idx]>0&&regionKills[idx]%10==0&&regionBosses[idx]<regionKills[idx]/10?"BOSS READY":"WAVE "+(regionKills[idx]%10)+"/10"),r-54,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
+            center(!unlocked?"BOSS GATE":(regionKills[idx]>0&&regionKills[idx]%10==0&&regionBosses[idx]<regionKills[idx]/10?"BOSS READY":"WAVE "+(regionKills[idx]%10)+"/10"),r-129,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
