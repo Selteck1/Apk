@@ -135,7 +135,8 @@ public class MainActivity extends Activity {
             int[] sky={color("#19152F"),color("#321D22"),color("#122B43"),color("#112F3A"),color("#281C47"),color("#32152F")}; int[] glowPal={color("#40316E"),color("#9E4A28"),color("#418CB5"),color("#2AABAC"),color("#8B65D5"),color("#D2387C")};
             p.setShader(new LinearGradient(0,0,340,844,sky[Math.floorMod(region,sky.length)],color("#080914"),Shader.TileMode.CLAMP));c.drawRect(0,0,390,844,p);p.setShader(null);
             glow(315,230,65,glowPal[Math.floorMod(region,glowPal.length)],55);glow(40,470,55,glowPal[Math.floorMod(region,glowPal.length)],42);
-            for(int i=0;i<52;i++){float xx=(i*73+17)%390, yy=(i*131+19)%710;paint(Color.argb(80+(i%5)*28,173,176,255));c.drawCircle(xx,yy,0.5f+(i%3)*0.4f,p);}
+            long anim=System.currentTimeMillis();for(int i=0;i<52;i++){float xx=(i*73+17)%390, yy=(i*131+19+(float)((anim/70+i*13)%710))%710;paint(Color.argb(80+(i%5)*28,173,176,255));c.drawCircle(xx,yy,0.5f+(i%3)*0.4f,p);}
+            int ambience=realmAccent();for(int i=0;i<17;i++){float xx=(i*47+17+(float)Math.sin(anim/480.0+i)*11)%390;float yy=(i*61+(float)(anim/(region==2?85:region==3?-110:105))%710)%710;if(region==3)yy=710-yy;paint(Color.argb(95+(i%4)*30,Color.red(ambience),Color.green(ambience),Color.blue(ambience)));c.drawCircle(xx,yy,1+(i%3)*0.6f,p);}
             header();
             tickCombat(); if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)cases();else if(tab==4)quests();else world();
             nav(); if(flashTicks>0){rect(0,0,390,735,Color.argb(Math.min(90,flashTicks*12),210,85,140),0);flashTicks--;}
@@ -194,14 +195,14 @@ public class MainActivity extends Activity {
         void battle(){
             txt("ACTIVE EXPEDITION",18,168,9,color("#8F8AB7"),true);
             rect(18,179,372,429,color("#101225"),16);
-            p.setShader(new LinearGradient(18,180,370,429,color(boss?"#3C1C43":"#29234C"),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);
+            p.setShader(new LinearGradient(18,180,370,429,Color.rgb((Color.red(realmAccent())+Color.red(color("#161527")))/2,(Color.green(realmAccent())+Color.green(color("#161527")))/2,(Color.blue(realmAccent())+Color.blue(color("#161527")))/2),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);
             // moon, ruins, mist layers
             glow(310,224,29,color(boss?"#D14B7C":"#A3A0D5"),12);
             paint(color("#C4C3DF"));c.drawCircle(310,224,23,p);paint(color("#AAA9C8"));c.drawCircle(303,218,4,p);c.drawCircle(319,231,6,p);
             paint(color("#17172D"));Path ruins=new Path();ruins.moveTo(18,354);ruins.lineTo(48,307);ruins.lineTo(61,331);ruins.lineTo(79,281);ruins.lineTo(100,354);ruins.lineTo(126,325);ruins.lineTo(147,354);ruins.lineTo(177,300);ruins.lineTo(204,355);ruins.lineTo(233,329);ruins.lineTo(257,355);ruins.lineTo(289,302);ruins.lineTo(315,355);ruins.lineTo(344,319);ruins.lineTo(372,346);ruins.lineTo(372,429);ruins.lineTo(18,429);ruins.close();c.drawPath(ruins,p);
             paint(color("#22203F"));Path ground=new Path();ground.moveTo(18,373);ground.quadTo(190,346,372,378);ground.lineTo(372,429);ground.lineTo(18,429);ground.close();c.drawPath(ground,p);
-            glow(190,388,80,color(boss?"#B12F67":"#7547CF"),25);
-            paint(color("#3B2B70"));c.drawOval(72,380,315,405,p);
+            glow(190,388,80,realmAccent(),25);
+            paint(Color.rgb(Color.red(realmAccent())/2,Color.green(realmAccent())/2,Color.blue(realmAccent())/2));c.drawOval(72,380,315,405,p);
             // enemy detailed, each archetype different silhouette
             if(boss) drawBoss(enemyX,345+(float)Math.sin(System.currentTimeMillis()/260.0)*3.0f,1.15f);
             else drawEnemy(enemyX,350+(float)Math.sin(System.currentTimeMillis()/230.0)*2.5f,enemyType%7,1.0f);
@@ -329,7 +330,7 @@ public class MainActivity extends Activity {
             if(type==0)rarity=roll<50?0:roll<77?1:roll<91?2:roll<98?3:4;
             else if(type==1)rarity=roll<25?1:roll<60?2:roll<85?3:roll<97?4:5;
             else rarity=roll<5?2:roll<30?3:roll<75?4:5;
-            boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;
+            boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
             power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
             if(weapon){weaponCollection|=(1<<id);ownedWeaponPower[id]=Math.max(ownedWeaponPower[id],power);ownedWeaponRarity[id]=Math.max(ownedWeaponRarity[id],rarity);prefs.edit().putInt("wp"+id,ownedWeaponPower[id]).putInt("wr"+id,ownedWeaponRarity[id]).apply();
                 if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=rarity;lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
@@ -376,19 +377,20 @@ public class MainActivity extends Activity {
             rect(r-78,t+24,r-9,t+61,progress>=goal?color("#51407E"):color("#2B2940"),7);center(progress>=goal?"READY":"HUNT",r-43,t+46,7,Color.WHITE,true);
         }
         void world(){
-            txt("EXPEDITION MAP",18,168,15,Color.WHITE,true);txt("Defeat the guardian to unlock the next realm.",18,186,9,color("#9792BB"),false);
-            realmCard(18,199,372,299,0,"THE VEIL","Corrupted shades • recommended Lv. 1",color("#58458D"),true);
-            realmCard(18,311,372,411,1,"ASHEN HOLLOW","Cinder beasts • recommended Lv. 5",color("#8E4D40"),level>=5);
-            realmCard(18,423,372,523,2,"FROSTBOUND","Frost giants • recommended Lv. 12",color("#376D91"),level>=12);
-            realmCard(18,535,372,635,3,"THE ABYSS","Ancient horrors • recommended Lv. 20",color("#87315E"),level>=20);
-            rect(18,648,372,715,color("#17172F"),11);txt("RAID BOARD",31,668,10,color("#FF9FB8"),true);txt("The Hollow King emerges every 5 victories.",31,686,9,color("#D1C5E9"),false);txt("Boss defeats: "+bossKills+"  •  Relic shards: "+shards,31,702,8,color("#BBA4F4"),true);
+            txt("REALM ATLAS",18,168,15,Color.WHITE,true);txt("6 regions • guardian kills and levels unlock the path",18,186,8,color("#9792BB"),false);
+            String[] names={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};
+            String[] desc={"Lv. 1 • Broken ruins","Lv. 5 • Cinder fields","Lv. 10 • Frozen wastes","Lv. 16 • Drowned kingdom","Lv. 22 • Astral frontier","Lv. 30 • End of reality"};
+            int[] tones={color("#6550A1"),color("#9B4E36"),color("#3B7398"),color("#277D83"),color("#7659B7"),color("#99365D")};
+            for(int i=0;i<6;i++)realmCard(18,199+i*86,372,277+i*86,i,names[i],desc[i],tones[i],realmUnlocked(i));
+            rect(18,718,372,729,color("#17172F"),5);txt("RAID VICTORIES "+bossKills+"   •   NEXT GATE "+(bossKills+1),27,726,7,color("#BBA4F4"),true);
         }
         void realmCard(int l,int t,int r,int b,int idx,String name,String desc,int co,boolean unlocked){
-            gradient(l,t,r,b,co,color("#17172D"),12);glow(r-43,t+45,25,co,12);
-            // mini illustrated landscape
-            paint(Color.argb(100,0,0,0));Path mountain=new Path();mountain.moveTo(r-92,t+75);mountain.lineTo(r-72,t+30);mountain.lineTo(r-55,t+55);mountain.lineTo(r-35,t+20);mountain.lineTo(r-7,t+75);mountain.close();c.drawPath(mountain,p);
-            txt("0"+(idx+1),l+13,t+21,8,color("#E0CBFF"),true);txt(name,l+13,t+42,12,Color.WHITE,true);txt(desc,l+13,t+59,7,color("#D2C9E8"),false);
-            rect(l+13,t+69,l+114,t+91,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+63,t+83,7,unlocked?Color.WHITE:color("#77738F"),true);
+            gradient(l,t,r,b,co,color("#111322"),9);outline(l,t,r,b,unlocked?co:color("#353247"),9,1);
+            glow(r-42,t+33,19,co,10);
+            paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);
+            txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
+            rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
+            center(unlocked?"READY":"Lv / boss gate",r-54,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
@@ -424,12 +426,12 @@ public class MainActivity extends Activity {
                 else if(y>=524&&y<=615&&shards>=3){shards-=3;potions++;play(sBuy);save();}
                 else if(y>=628&&y<=715&&kills>0&&dailyClaimed==0){dailyClaimed=1;gold+=55;potions++;play(sWin);save();}
             }else if(tab==5){
-                if(y>=199&&y<=285&&realmUnlocked(0)){region=0;spawnEnemy();}
-                else if(y>=291&&y<=377&&realmUnlocked(1)){region=1;spawnEnemy();}
-                else if(y>=383&&y<=469&&realmUnlocked(2)){region=2;spawnEnemy();}
-                else if(y>=475&&y<=561&&realmUnlocked(3)){region=3;spawnEnemy();}
-                else if(y>=567&&y<=653&&realmUnlocked(4)){region=4;spawnEnemy();}
-                else if(y>=659&&y<=715&&realmUnlocked(5)){region=5;spawnEnemy();}
+                if(y>=199&&y<279&&realmUnlocked(0)){region=0;spawnEnemy();}
+                else if(y>=285&&y<365&&realmUnlocked(1)){region=1;spawnEnemy();}
+                else if(y>=371&&y<451&&realmUnlocked(2)){region=2;spawnEnemy();}
+                else if(y>=457&&y<537&&realmUnlocked(3)){region=3;spawnEnemy();}
+                else if(y>=543&&y<623&&realmUnlocked(4)){region=4;spawnEnemy();}
+                else if(y>=629&&y<709&&realmUnlocked(5)){region=5;spawnEnemy();}
             }
             invalidate();return true;
         }
