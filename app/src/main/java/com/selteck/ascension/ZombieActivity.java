@@ -378,31 +378,41 @@ public class ZombieActivity extends Activity {
             long now=System.currentTimeMillis();
             dt=Math.min(0.05f,Math.max(0,dt));
             if(dead) {if(now-lastSave>2500){save();lastSave=now;}return;}
-            if(!inside) {
-                float mx=moveX,my=moveY, magMove=(float)Math.sqrt(mx*mx+my*my);
-                if(magMove>1){mx/=magMove;my/=magMove;}
-                if(aimActive && Math.sqrt(aimX*aimX+aimY*aimY)>0.13) yaw=(float)Math.atan2(aimX,aimY);
-                else if(magMove>0.18f) {
-                    float worldX=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
-                    float worldZ=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
-                    yaw=(float)Math.atan2(worldX,-worldZ);
-                }
-                float moveSpeed=(sprinting?7.8f:4.7f)+speedBonus;
-                float wx=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
-                float wz=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
-                float nx=px+wx*moveSpeed*dt,nz=pz+wz*moveSpeed*dt;
+
+            // Movement is shared by the streets and building interiors.
+            float mx=moveX,my=moveY,magMove=(float)Math.sqrt(mx*mx+my*my);
+            if(magMove>1){mx/=magMove;my/=magMove;}
+            float aimMagnitude=(float)Math.sqrt(aimX*aimX+aimY*aimY);
+            if(aimActive && aimMagnitude>0.13f) yaw=(float)Math.atan2(aimX,aimY);
+            else if(magMove>0.18f) {
+                float worldX=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
+                float worldZ=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
+                yaw=(float)Math.atan2(worldX,-worldZ);
+            }
+            float moveSpeed=(sprinting?7.8f:4.7f)+speedBonus;
+            float wx=mx*(float)Math.cos(yaw)+my*(float)Math.sin(yaw);
+            float wz=mx*(float)Math.sin(yaw)-my*(float)Math.cos(yaw);
+            float nx=px+wx*moveSpeed*dt,nz=pz+wz*moveSpeed*dt;
+            if(inside) {
+                // Interior coordinate space is a room; clamp movement to its walls.
+                px=Math.max(-9.5f,Math.min(9.5f,nx));
+                pz=Math.max(-9.4f,Math.min(9.05f,nz));
+            } else {
                 if(!isBlocked(nx,pz,0.55f))px=nx;
                 if(!isBlocked(px,nz,0.55f))pz=nz;
                 px=Math.max(2,Math.min(704,px));pz=Math.max(2,Math.min(468,pz));
-                if(magMove>0.12f)walkPhase+=dt*(sprinting?12:8);
+            }
+            if(magMove>0.12f)walkPhase+=dt*(sprinting?12:8);
+
+            // Combatants and their projectiles only run outdoors.
+            if(!inside) {
                 if(firing) shoot(now);
                 if(now-lastMobSpawn>1250) {lastMobSpawn=now;if(zombies.size()<34)spawnZombieAround(cityAt(px,pz),25);}
                 updateZombies(dt,now);
                 updateProjectiles(dt,now);
-                updatePickups();
-            } else {
-                updatePickups();
             }
+            updatePickups();
+
             for(int i=traces.size()-1;i>=0;i--){traces.get(i).life-=dt;if(traces.get(i).life<=0)traces.remove(i);}
             for(int i=zombies.size()-1;i>=0;i--)if(!zombies.get(i).alive)zombies.remove(i);
             if(hp<=0)die();
@@ -695,7 +705,7 @@ public class ZombieActivity extends Activity {
                 float[] view=new float[16],proj=new float[16],mvp=new float[16];
                 float eyeX,eyeY,eyeZ,targetX=s.px,targetY=s.inside?1.0f:1.1f,targetZ=s.pz;
                 if(s.inside) {
-                    eyeX=s.px-(float)Math.sin(s.yaw)*7.2f;eyeY=4.0f;eyeZ=s.pz+(float)Math.cos(s.yaw)*7.2f;
+                    eyeX=s.px-(float)Math.sin(s.yaw)*4.6f;eyeY=3.6f;eyeZ=s.pz+(float)Math.cos(s.yaw)*4.6f;
                 } else {
                     eyeX=s.px-(float)Math.sin(s.yaw)*9.2f;eyeY=6.4f;eyeZ=s.pz+(float)Math.cos(s.yaw)*9.2f;
                 }
