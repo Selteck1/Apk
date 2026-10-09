@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
         boolean[] gunUnlocked={true,false,false},bossDefeated=new boolean[6],bossSpawned=new boolean[6];
         int[] relayCount=new int[6],zoneKills=new int[6];
         int selectedQuest=0,notificationColor=0;
-        boolean aimActive=false,firing=false,mapOpen=false,paused=false;
+        boolean aimActive=false,firing=false,mapOpen=false,paused=false,soundOn=true;
         String notice="Find the signal relays. Stay alive.",objectiveText="Find the first signal relay";
         long noticeUntil=0,lastUpdate=0,lastSave=0,lastSpawn=0,lastShot=0,reloadUntil=0,dashUntil=0,dashReadyAt=0,invincibleUntil=0,lastDamageAt=0,lastPickupAt=0;
         long firePressedAt=0,damageFlashUntil=0,questPulseUntil=0;
@@ -200,9 +200,10 @@ public class MainActivity extends Activity {
             for(int i=0;i<n;i++){double t=i/(double)rate,env=Math.pow(Math.max(0,Math.sin(Math.PI*t/9)),0.4);double v=Math.sin(2*Math.PI*55*t)*0.18+Math.sin(2*Math.PI*82.4*t)*0.14+Math.sin(2*Math.PI*110*t+Math.sin(t*.35))*0.10+Math.sin(2*Math.PI*164.8*t)*0.06+Math.sin(2*Math.PI*41.2*t)*0.05*Math.sin(t*.7);b.putShort((short)(v*env*4500));}
             File f=new File(getCacheDir(),"af_ambience.wav");FileOutputStream o=new FileOutputStream(f);o.write(b.array());o.close();ambient=new MediaPlayer();ambient.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());ambient.setDataSource(f.getAbsolutePath());ambient.prepare();ambient.setLooping(true);ambient.setVolume(0.19f,0.19f);ambient.start();
         }
-        void play(int id){if(soundPool!=null&&id!=0)try{soundPool.play(id,1,1,1,0,0.94f+rng.nextFloat()*0.12f);}catch(Exception ignored){}}
+        void play(int id){if(soundOn&&soundPool!=null&&id!=0)try{soundPool.play(id,1,1,1,0,0.94f+rng.nextFloat()*0.12f);}catch(Exception ignored){}}
+        void toggleSound(){soundOn=!soundOn;if(ambient!=null)try{if(soundOn){if(!ambient.isPlaying())ambient.start();}else if(ambient.isPlaying())ambient.pause();}catch(Exception ignored){}if(soundOn)play(sLoot);}
         void pauseAudio(){if(soundPool!=null)soundPool.autoPause();if(ambient!=null)try{if(ambient.isPlaying())ambient.pause();}catch(Exception ignored){}}
-        void resumeAudio(){if(soundPool!=null)soundPool.autoResume();if(ambient!=null)try{if(!ambient.isPlaying())ambient.start();}catch(Exception ignored){}}
+        void resumeAudio(){if(soundPool!=null)soundPool.autoResume();if(soundOn&&ambient!=null)try{if(!ambient.isPlaying())ambient.start();}catch(Exception ignored){}}
         void releaseAudio(){if(soundPool!=null){soundPool.release();soundPool=null;}if(ambient!=null){try{ambient.stop();}catch(Exception ignored){}ambient.release();ambient=null;}}
 
         @Override protected void onDraw(Canvas canvas){
@@ -364,7 +365,7 @@ public class MainActivity extends Activity {
         void drawHUD(long now){
             // compact survivor card
             box(12,10,226,77,Color.argb(220,12,17,25),11);stroke(12,10,226,77,Color.argb(160,119,160,180),11,1);
-            text("FRONTIER SURVIVOR",24,28,9,col("#ADC2CA"),true);text("LV "+level+"   "+zoneName(currentZone()),24,45,11,Color.WHITE,true);
+            text("FRONTIER SURVIVOR",24,28,9,col("#ADC2CA"),true);text("LV "+level+"   "+zoneName(currentZone()),24,45,11,Color.WHITE,true);box(198,15,220,37,soundOn?col("#263C43"):col("#44303A"),5);centre(soundOn?"♪":"×",209,30,11,soundOn?col("#A7F0D0"):col("#FF9CA5"),true);
             box(24,53,210,60,col("#30323A"),4);box(24,53,24+186*health/(float)maxHealth,60,health>35?col("#60D69B"):col("#FF657B"),4);text(health+"/"+maxHealth+" HP",24,72,9,Color.WHITE,true);
             // main expedition objective
             box(237,10,529,77,Color.argb(210,12,17,25),10);text("FIELD OBJECTIVE",249,28,9,col("#D3B4FF"),true);
@@ -598,7 +599,8 @@ public class MainActivity extends Activity {
         }
         void pointerDown(MotionEvent e,int index){
             int id=e.getPointerId(index);float x=e.getX(index)/sx,y=e.getY(index)/sy;
-            if(y<84&&x>812){mapOpen=!mapOpen;return;}
+            if(y<42&&x>=195&&x<=230){toggleSound();return;}
+            if(y<84&&x>812){mapOpen=!mapOpen;if(mapOpen)firing=false;return;}
             if(mapOpen){mapOpen=false;return;}
             if(y<84&&x>=545&&x<787){int slot=(int)((x-548)/79);switchGun(Math.min(2,Math.max(0,slot)));return;}
             if(x<230&&y>345&&movePid<0){movePid=id;moveTouchX=x;moveTouchY=y;return;}
