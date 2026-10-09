@@ -156,7 +156,7 @@ public class MainActivity extends Activity {
         }
         void loadGame(){
             px=prefs.getFloat("px",520);py=prefs.getFloat("py",530);checkpointX=prefs.getFloat("cx",px);checkpointY=prefs.getFloat("cy",py);
-            level=Math.max(1,prefs.getInt("lv",1));xp=prefs.getInt("xp",0);xpNext=needXp();health=prefs.getInt("hp",100);maxHealth=prefs.getInt("mhp",100);health=Math.max(1,Math.min(maxHealth,health));coins=prefs.getInt("coin",80);kills=prefs.getInt("kills",0);relaysTotal=prefs.getInt("relays",0);openedCaches=prefs.getInt("caches",0);medkits=prefs.getInt("med",2);shotsFired=prefs.getInt("shotsF",0);shotsHit=prefs.getInt("shotsH",0);
+            level=Math.max(1,prefs.getInt("lv",1));xp=prefs.getInt("xp",0);xpNext=needXp();health=prefs.getInt("hp",100);maxHealth=prefs.getInt("mhp",100);health=Math.max(1,Math.min(maxHealth,health));coins=prefs.getInt("coin",80);kills=prefs.getInt("kills",0);relaysTotal=prefs.getInt("relays",0);openedCaches=prefs.getInt("caches",0);medkits=prefs.getInt("med",2);shotsFired=prefs.getInt("shotsF",0);shotsHit=prefs.getInt("shotsH",0);playerDamage=prefs.getInt("bounty",0);
             currentGun=prefs.getInt("gun",0);for(int i=0;i<3;i++){mag[i]=prefs.getInt("mag"+i,i==0?12:0);reserve[i]=prefs.getInt("res"+i,i==0?96:0);gunUnlocked[i]=prefs.getBoolean("g"+i,i==0);}
             for(int i=0;i<points.size();i++)points.get(i).used=prefs.getBoolean("p"+i,false);
             for(int z=0;z<6;z++){relayCount[z]=prefs.getInt("relay"+z,0);zoneKills[z]=prefs.getInt("zk"+z,0);bossDefeated[z]=prefs.getBoolean("bd"+z,false);bossSpawned[z]=prefs.getBoolean("bs"+z,false);}
@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
         }
         int needXp(){return 135+level*72+level*level*5;}
         void save(){
-            SharedPreferences.Editor e=prefs.edit().putFloat("px",px).putFloat("py",py).putFloat("cx",checkpointX).putFloat("cy",checkpointY).putInt("lv",level).putInt("xp",xp).putInt("hp",health).putInt("mhp",maxHealth).putInt("coin",coins).putInt("kills",kills).putInt("relays",relaysTotal).putInt("caches",openedCaches).putInt("med",medkits).putInt("shotsF",shotsFired).putInt("shotsH",shotsHit).putInt("gun",currentGun);
+            SharedPreferences.Editor e=prefs.edit().putFloat("px",px).putFloat("py",py).putFloat("cx",checkpointX).putFloat("cy",checkpointY).putInt("lv",level).putInt("xp",xp).putInt("hp",health).putInt("mhp",maxHealth).putInt("coin",coins).putInt("kills",kills).putInt("relays",relaysTotal).putInt("caches",openedCaches).putInt("med",medkits).putInt("shotsF",shotsFired).putInt("shotsH",shotsHit).putInt("bounty",playerDamage).putInt("gun",currentGun);
             for(int i=0;i<3;i++)e.putInt("mag"+i,mag[i]).putInt("res"+i,reserve[i]).putBoolean("g"+i,gunUnlocked[i]);
             for(int i=0;i<points.size();i++)e.putBoolean("p"+i,points.get(i).used);
             for(int z=0;z<6;z++)e.putInt("relay"+z,relayCount[z]).putInt("zk"+z,zoneKills[z]).putBoolean("bd"+z,bossDefeated[z]).putBoolean("bs"+z,bossSpawned[z]);
@@ -176,6 +176,7 @@ public class MainActivity extends Activity {
         void addXP(int amount){xp+=amount;while(xp>=needXp()){xp-=needXp();level++;maxHealth+=9;health=Math.min(maxHealth,health+34);notification("LEVEL UP  •  LEVEL "+level+"  •  MAX HP +9",2600);play(sLevel);for(int i=0;i<24;i++)particle(px,py,accent(currentZone()),2.8f,20); }xpNext=needXp();}
         boolean regionUnlocked(int z){return z==0||bossDefeated[z-1];}
         int relaysIn(int z){int n=0;for(Landmark q:points)if(q.zone==z&&q.type==0&&q.used)n++;return n;}
+        int killGoal(int z){return 60+25*z;}
         Landmark nearestLandmark(float x,float y,boolean actionableOnly){Landmark best=null;float bd=Float.MAX_VALUE;for(Landmark q:points){if(actionableOnly&&q.used&&q.type!=3)continue;float d=dist(x,y,q.x,q.y);if(d<bd){bd=d;best=q;}}return best;}
         float dist(float x1,float y1,float x2,float y2){return (float)Math.hypot(x1-x2,y1-y2);}
         void initAudio(){
