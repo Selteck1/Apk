@@ -782,6 +782,11 @@ public class ZombieActivity extends Activity {
                     for(int i=0;i<5;i++)m.box(x,0.09f,z-3.0f+i*1.5f,1.1f,0.025f,0.08f,0xffb4a57a);
                 }
             }
+            for(int col=0;col<3;col++) {
+                float x=col*235+110;
+                m.box(x,0.04f,227.5f,8.0f,0.08f,15.5f,0xff353a3b);
+                for(int i=0;i<5;i++)m.box(x-3.0f+i*1.5f,0.09f,227.5f,0.08f,0.025f,1.1f,0xffb4a57a);
+            }
             float[] data=m.data;return new Mesh(data,m.n);
         }
         private void addBuildingMesh(MeshBuilder m,Building b,Random r) {
