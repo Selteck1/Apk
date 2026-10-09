@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
         String combatNotice=""; long combatNoticeUntil=0, enemyAnimUntil=0;
-        boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false;
+        boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false, campaignComplete;
         String enemyName="RIFT WRAITH";
         long eventSeed;
         SoundPool sounds; MediaPlayer ambience; int sHit, sCrit, sBoss, sLevel, sBuy, sHeal, sWin, sClick, sSkill;
@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
             weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0); weaponCollection=prefs.getInt("weaponCollection",1); armorCollection=prefs.getInt("armorCollection",1);
             for(int i=0;i<8;i++){ownedWeaponPower[i]=prefs.getInt("wp"+i,0);ownedWeaponRarity[i]=prefs.getInt("wr"+i,0);ownedArmorPower[i]=prefs.getInt("ap"+i,0);ownedArmorRarity[i]=prefs.getInt("ar"+i,0);}
             for(int i=0;i<6;i++){regionKills[i]=prefs.getInt("rk"+i,i==0?Math.max(0,kills-bossKills):0);regionBosses[i]=prefs.getInt("rb"+i,i==0?bossKills:0);}
-            enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);
+            enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);campaignComplete=prefs.getBoolean("campaignComplete",false);
             enemyMax=prefs.getInt("enemyMax",90+level*9); enemyHp=prefs.getInt("enemyHp",enemyMax);
             if(hp<1) hp=maxHp;
             if(enemyHp<1) enemyHp=enemyMax;
@@ -137,9 +137,12 @@ public class MainActivity extends Activity {
             .putInt("strength",strength).putInt("vitality",vitality).putInt("focus",focus).putInt("crit",crit).putInt("potions",potions)
             .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
             .putInt("weaponTier",weaponTier).putInt("armorTier",armorTier).putInt("relicTier",relicTier).putInt("region",region)
-            .putInt("eventProgress",eventProgress).putInt("weaponCollection",weaponCollection).putInt("armorCollection",armorCollection).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
+            .putInt("eventProgress",eventProgress).putInt("weaponCollection",weaponCollection).putInt("armorCollection",armorCollection).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp).putBoolean("campaignComplete",campaignComplete)
             .putLong("eventSeed",eventSeed).apply();SharedPreferences.Editor e=prefs.edit();for(int i=0;i<6;i++)e.putInt("rk"+i,regionKills[i]).putInt("rb"+i,regionBosses[i]);e.apply();}
         int xpNeed(){return 190+level*78+level*level*3;}
+        int campaignSlays(){int total=0;for(int n:regionKills)total+=n;return total;}
+        int campaignGuardians(){int total=0;for(int n:regionBosses)total+=n;return total;}
+        int waveProgress(int r){int n=regionKills[r];if(n>0&&n%60==0&&regionBosses[r]<n/60)return 60;return n%60;}
         int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2+weaponPower;}
         int actualDefense(){return defense+armorTier*3+vitality*2+relicTier+armorPower;}
         int actualMaxHp(){return maxHp+armorTier*15+vitality*18+armorPower*3;}
@@ -157,7 +160,7 @@ public class MainActivity extends Activity {
             header();
             tickCombat(); if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)cases();else if(tab==4)quests();else world();
             nav(); if(flashTicks>0){rect(0,0,390,735,Color.argb(Math.min(90,flashTicks*12),210,85,140),0);flashTicks--;}
-            if(hitTicks>0)hitTicks--; c.restore();postInvalidateDelayed(45);
+            if(hitTicks>0)hitTicks--; c.restore();postInvalidateDelayed(33);
         }
         void header(){
             txt("P R O J E C T   /   A S C E N S I O N",18,28,9,color("#AAA1D2"),true);
@@ -212,7 +215,7 @@ public class MainActivity extends Activity {
             c.restore();
         }
         void battle(){
-            txt("ACTIVE EXPEDITION",18,168,9,color("#8F8AB7"),true);
+            txt(campaignComplete?"ASCENSION COMPLETE • ENDGAME":"ACTIVE EXPEDITION",18,168,9,campaignComplete?color("#EBD18A"):color("#8F8AB7"),true);
             rect(18,179,372,429,color("#101225"),16);
             c.save();Path arenaClip=new Path();arenaClip.addRoundRect(18,179,372,429,16,16,Path.Direction.CW);c.clipPath(arenaClip);
             if(realmArt[Math.floorMod(region,realmArt.length)]!=null){drawSprite(realmArt[Math.floorMod(region,realmArt.length)],18,179,354,250);paint(Color.argb(38,7,7,22));c.drawRect(18,179,372,429,p);}
@@ -261,7 +264,7 @@ public class MainActivity extends Activity {
             rect(263,659,358,700,kills-questClaimed>=5?color("#59418A"):color("#25243B"),8);
             center(kills-questClaimed>=5?"CLAIM":"IN PROGRESS",310,676,8,kills-questClaimed>=5?Color.WHITE:color("#8583A7"),true);
             center(kills-questClaimed>=5?"+90 G  +1 SHARD":"REWARD",310,689,7,color("#E9D49B"),true);
-            txt("Boss every 5 victories  •  loot is saved automatically",30,707,7,color("#727392"),false);
+            txt("HUNT "+waveProgress(region)+"/60  •  GUARDIAN "+regionBosses[region]+"/3  •  SAVE AUTO",30,707,7,color("#727392"),false);
         }
         void drawEnemy(float x,float y,int type,float scale){
             c.save();c.translate(x,y);c.scale(scale,scale);
@@ -419,7 +422,7 @@ public class MainActivity extends Activity {
             String[] desc={"Lv. 1 • Broken ruins","Lv. 5 • Cinder fields","Lv. 10 • Frozen wastes","Lv. 16 • Drowned kingdom","Lv. 22 • Astral frontier","Lv. 30 • End of reality"};
             int[] tones={color("#6550A1"),color("#9B4E36"),color("#3B7398"),color("#277D83"),color("#7659B7"),color("#99365D")};
             for(int i=0;i<6;i++)realmCard(18,199+i*86,372,277+i*86,i,names[i],desc[i],tones[i],realmUnlocked(i));
-            rect(18,718,372,729,color("#17172F"),5);txt("RAID VICTORIES "+bossKills+"   •   NEXT GATE "+(bossKills+1),27,726,7,color("#BBA4F4"),true);
+            rect(18,718,372,729,color("#17172F"),5);bar(19,718,352,3,campaignSlays()/1080f,color("#17172F"),color("#B18AFF"));txt(campaignComplete?"CAMPAIGN COMPLETE • ENDGAME HUNTS UNLOCKED":"CAMPAIGN "+campaignSlays()+"/1080 HUNTS  •  GUARDIANS "+campaignGuardians()+"/18",27,726,7,campaignComplete?color("#F0D58F"):color("#BBA4F4"),true);
         }
         void realmCard(int l,int t,int r,int b,int idx,String name,String desc,int co,boolean unlocked){
             gradient(l,t,r,b,co,color("#111322"),9);outline(l,t,r,b,unlocked?co:color("#353247"),9,1);
@@ -427,7 +430,7 @@ public class MainActivity extends Activity {
             else{glow(r-42,t+33,19,co,10);paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);}
             txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
             rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
-            center(!unlocked?"GATE LOCKED":(regionKills[idx]>0&&regionKills[idx]%60==0&&regionBosses[idx]<regionKills[idx]/60?"GUARDIAN READY":"GUARDIAN "+regionBosses[idx]+"/3"),r-129,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
+            int[] req={1,5,10,16,22,30};String state=!unlocked?("LV "+req[idx]+" • G "+regionBosses[idx]+"/3"):(regionKills[idx]>0&&regionKills[idx]%60==0&&regionBosses[idx]<regionKills[idx]/60?"GUARDIAN READY":"HUNT "+waveProgress(idx)+"/60 • G "+regionBosses[idx]+"/3");center(state,r-101,t+65,5.8f,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
@@ -488,7 +491,7 @@ public class MainActivity extends Activity {
             kills++;stageWins++;if(boss)regionBosses[region]++;else{regionKills[region]++;if(regionKills[region]%10==0){shards++;gold+=70;lootNotice="WAVE CACHE • "+regionName();lastLoot="+1 shard and 70 gold";lootNoticeUntil=System.currentTimeMillis()+4000;play(sWin);}}eventProgress=Math.min(10,eventProgress+1);gold+=boss?320+region*110:34+region*20;xp+=boss?720+level*55+region*120:48+level*8+region*25;
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
-            if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guaranteed boss reward";lootNoticeUntil=System.currentTimeMillis()+5000;}
+            if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guardian seal "+regionBosses[region]+"/3 secured";lootNoticeUntil=System.currentTimeMillis()+5000;if(region==5&&regionBosses[5]>=3){campaignComplete=true;lootNotice="ASCENSION COMPLETE";lastLoot="The Unmaker has fallen • endgame unlocked";lootNoticeUntil=System.currentTimeMillis()+10000;flashTicks=10;}}
             while(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;maxMana+=12;mana=maxMana;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
             hp=Math.min(actualMaxHp(),hp+Math.max(8,actualMaxHp()/12));
             spawnEnemy();save();
