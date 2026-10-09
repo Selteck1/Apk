@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
         float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
-        String combatNotice=""; long combatNoticeUntil=0;
+        String combatNotice=""; long combatNoticeUntil=0, enemyAnimUntil=0;
         boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false;
         String enemyName="RIFT WRAITH";
         long eventSeed;
@@ -165,6 +165,7 @@ public class MainActivity extends Activity {
             txt("◈ "+shards,353,29,10,color("#9DEBFF"),true);
             txt("THE SHATTERED REALM",18,57,20,Color.WHITE,true);
             txt("EXPEDITION "+(region+1)+"  /  "+regionName(),18,75,9,color("#8985B5"),true);
+            txt(audioOn?"♪":"♪̸",350,58,18,audioOn?color("#9EEBFF"):color("#77718A"),true);
             rect(18,88,372,145,color("#17172E"),13);
             gradient(18,88,23,145,color("#E8C879"),color("#8B57ED"),2);
             heroPortrait(48,116,0.55f);
@@ -184,7 +185,7 @@ public class MainActivity extends Activity {
             c.restore();
         }
         int realmAccent(){int[] a={color("#9E72EF"),color("#E48743"),color("#6ECDF3"),color("#42D8CB"),color("#B49AFF"),color("#F05BA6")};return a[Math.floorMod(region,a.length)];}
-        void tickCombat(){if(tab!=0)return;long now=System.currentTimeMillis();if(Math.abs(enemyX-heroX)>86)enemyX+=heroX>enemyX?0.62f:-0.62f;enemyX=Math.max(55,Math.min(342,enemyX));if(now>=nextEnemyAttack&&Math.abs(enemyX-heroX)<96){nextEnemyAttack=now+(boss?1280:1650);if(now<jumpUntil||now<invulnerableUntil){combatNotice="DODGED";combatNoticeUntil=now+550;play(sClick);}else{int hurt=Math.max(5,(boss?22+region*6:12+region*5+level/4)-actualDefense()/2);hp-=hurt;invulnerableUntil=now+720;flashTicks=4;combatNotice=(boss?"BOSS SMASH":"ENEMY STRIKE")+"  -"+hurt;combatNoticeUntil=now+850;play(sHit);if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-25);heroX=Math.max(60,heroX-38);combo=0;combatNotice="YOU FELL • LOST 25 GOLD";combatNoticeUntil=now+1500;invulnerableUntil=now+1900;}save();}}}
+        void tickCombat(){if(tab!=0)return;long now=System.currentTimeMillis();if(Math.abs(enemyX-heroX)>86)enemyX+=heroX>enemyX?0.62f:-0.62f;enemyX=Math.max(55,Math.min(342,enemyX));if(now>=nextEnemyAttack&&Math.abs(enemyX-heroX)<96){nextEnemyAttack=now+(boss?1280:1650);if(now<jumpUntil||now<invulnerableUntil){combatNotice="DODGED";combatNoticeUntil=now+550;play(sClick);}else{enemyAnimUntil=now+360;int hurt=Math.max(5,(boss?22+region*6:12+region*5+level/4)-actualDefense()/2);hp-=hurt;invulnerableUntil=now+720;flashTicks=4;combatNotice=(boss?"BOSS SMASH":"ENEMY STRIKE")+"  -"+hurt;combatNoticeUntil=now+850;play(sHit);if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-25);heroX=Math.max(60,heroX-38);combo=0;combatNotice="YOU FELL • LOST 25 GOLD";combatNoticeUntil=now+1500;invulnerableUntil=now+1900;}save();}}}
         void drawHero(float x,float y,float s,boolean attackPose){
             c.save();c.translate(x,y);c.scale(s,s);
             glow(0,36,38,color("#6440BC"),18);
@@ -221,11 +222,13 @@ public class MainActivity extends Activity {
             c.restore();
             // enemy detailed, each archetype different silhouette
             long nowArt=System.currentTimeMillis();float enemyBob=(float)Math.sin(nowArt/(boss?260.0:230.0))*3.0f;
-            if(boss){if(bossArt[Math.floorMod(region,bossArt.length)]!=null)drawSprite(bossArt[Math.floorMod(region,bossArt.length)],enemyX-48,281+enemyBob,96,132);else drawBoss(enemyX,345+enemyBob,1.15f);}
-            else{if(mobArt[Math.floorMod(enemyType,mobArt.length)]!=null)drawSprite(mobArt[Math.floorMod(enemyType,mobArt.length)],enemyX-40,294+enemyBob,80,116);else drawEnemy(enemyX,350+enemyBob,enemyType%7,1.0f);}
-            Bitmap heroFrame=nowArt<jumpUntil?heroJumpArt:(hitTicks>0?heroAttackArt:heroIdleArt);
-            if(heroFrame!=null){float heroTop=nowArt<jumpUntil?273:306;drawSprite(heroFrame,heroX-33,heroTop,66,104);line(heroX+13,353,heroX+27,326,rarityColor(weaponRarity),2.5f);}
-            else drawHero(heroX,358-(nowArt<jumpUntil?42:0),0.83f,hitTicks>0);
+            float lunge=nowArt<enemyAnimUntil?(heroX>enemyX?17f:-17f):0f;float renderEnemyX=enemyX+lunge;
+            if(boss){if(bossArt[Math.floorMod(region,bossArt.length)]!=null)drawSprite(bossArt[Math.floorMod(region,bossArt.length)],renderEnemyX-48,281+enemyBob,96,132);else drawBoss(renderEnemyX,345+enemyBob,1.15f);}
+            else{if(mobArt[Math.floorMod(enemyType,mobArt.length)]!=null)drawSprite(mobArt[Math.floorMod(enemyType,mobArt.length)],renderEnemyX-40,294+enemyBob,80,116);else drawEnemy(renderEnemyX,350+enemyBob,enemyType%7,1.0f);}
+            boolean airborne=nowArt<jumpUntil;long jumpStart=jumpUntil-680;float jumpPhase=airborne?Math.max(0,Math.min(1,(nowArt-jumpStart)/680f)):0;float jumpLift=airborne?(float)Math.sin(Math.PI*jumpPhase)*43f:0;
+            Bitmap heroFrame=airborne?heroJumpArt:(hitTicks>0?heroAttackArt:heroIdleArt);
+            if(heroFrame!=null){float heroTop=306-jumpLift;drawSprite(heroFrame,heroX-33,heroTop,66,104);line(heroX+13,353-jumpLift,heroX+27,326-jumpLift,rarityColor(weaponRarity),2.5f);}
+            else drawHero(heroX,358-jumpLift,0.83f,hitTicks>0);
             if(hitTicks>0){ paint(Color.argb(235,220,242,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);c.drawArc(heroX+8,317,heroX+93,396,-72+(10-hitTicks)*17,105,false,p);p.setStyle(Paint.Style.FILL); for(int k=0;k<7;k++){float a=(System.currentTimeMillis()/19+k*51)%360;float rr=16+(k*7);paint(Color.argb(150,198,145,255));c.drawCircle(heroX+43+(float)Math.cos(Math.toRadians(a))*rr,355+(float)Math.sin(Math.toRadians(a))*rr,1.5f+(k%3),p);} }
             // enemy nameplate
             rect(29,191,209,266,color("#10101F"),10);
@@ -431,12 +434,13 @@ public class MainActivity extends Activity {
             String[] labels={"BATTLE","HERO","SKILLS","CASES","QUESTS","WORLD"};String[] icons={"⚔","♙","✧","▣","☷","⌖"};
             for(int i=0;i<6;i++){float x=32.5f+i*65;int co=tab==i?color("#D0ACFF"):color("#777691");if(tab==i)rect(x-23,750,x+23,806,color("#29223F"),9);center(icons[i],x,772,17,co,true);center(labels[i],x,792,6.4f,co,true);}
             center("PROJECT: ASCENSION  •  OFFLINE DARK RPG",195,825,7,color("#555471"),true);
-            txt(audioOn?"♪ ON":"♪ OFF",333,824,7,audioOn?color("#9EEBFF"):color("#77718A"),true);
+
         }
         @Override public boolean onTouchEvent(MotionEvent e){
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             float x=e.getX()/sx,y=e.getY()/sy;
-            if(y>=735){if(x>=330){toggleAudio();}else{tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);}invalidate();return true;}
+            if(y>=44&&y<=78&&x>=330){toggleAudio();invalidate();return true;}
+            if(y>=735){tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);invalidate();return true;}
             if(tab==0){
                 if(y>=507&&y<=570){if(x<90){heroX=Math.max(52,heroX-34);lastStep=System.currentTimeMillis();}else if(x<160){jumpUntil=System.currentTimeMillis()+680;heroX=Math.min(322,heroX+8);play(sSkill);}else if(x<278)attackEnemy();else{heroX=Math.min(322,heroX+34);lastStep=System.currentTimeMillis();} }
                 else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else tab=3;}
