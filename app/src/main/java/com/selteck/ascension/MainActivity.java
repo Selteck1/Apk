@@ -30,7 +30,7 @@ public class MainActivity extends Activity {
     final class GameView extends View {
         Canvas c; Paint p = new Paint(Paint.ANTI_ALIAS_FLAG); float sx, sy;
         SharedPreferences prefs; Random rng = new Random();
-        int tab=0, level, xp, gold, hp, maxHp, attack, defense, kills, skillPoints;
+        int tab=0, level, xp, gold, hp, maxHp, attack, defense, kills, skillPoints, mana, maxMana, dailyClaimed;
         int strength, vitality, focus, crit, potions, shards, bossKills, questClaimed, eventClaimed;
         int weaponTier, armorTier, relicTier, combo, eventProgress, lastHit;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
