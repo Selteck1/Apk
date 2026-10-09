@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
         float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
+        String combatNotice=""; long combatNoticeUntil=0;
         boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false;
         String enemyName="RIFT WRAITH";
         long eventSeed;
@@ -396,7 +397,8 @@ public class MainActivity extends Activity {
                 else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else tab=3;}
                 else if(y>=646&&y<=715&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
             }else if(tab==1){
-                if(y>=560&&y<=629){if(x<184)buyUpgrade(0);else buyUpgrade(1);}
+                if(y>=181&&y<=323){if(x<195)cycleGear(true);else cycleGear(false);}
+                else if(y>=560&&y<=629){if(x<184)buyUpgrade(0);else buyUpgrade(1);}
                 else if(y>=640&&y<=709){if(x<184)buyUpgrade(2);else buyUpgrade(3);}
             }else if(tab==2){
                 if(y>=280&&y<=367)upgradeSkill(0);
@@ -404,7 +406,8 @@ public class MainActivity extends Activity {
                 else if(y>=476&&y<=563)upgradeSkill(2);
                 else if(y>=574&&y<=661)upgradeSkill(3);
             }else if(tab==3){
-                if(y>=199&&y<=303){if(x<130)openCase(0);else if(x<260)openCase(1);else openCase(2);}
+                if(y>=202&&y<=506){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
+                else if(y>=507&&y<=570){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
             }else if(tab==4){
                 if(y>=199&&y<=303&&eventProgress>=10&&eventClaimed==0){gold+=180;shards+=2;eventClaimed=1;play(sWin);save();}
                 else if(y>=316&&y<=407&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
@@ -422,34 +425,30 @@ public class MainActivity extends Activity {
             invalidate();return true;
         }
         void attackEnemy(){
-            long now=System.currentTimeMillis();if(now-lastAttackAt<160)return;lastAttackAt=now;
-            combo=Math.min(99,combo+1);hitTicks=4;shakeTicks=3;mana=Math.min(maxMana,mana+4+focus);
+            long now=System.currentTimeMillis();if(now-lastAttackAt<280)return;lastAttackAt=now;
+            if(Math.abs(enemyX-heroX)>128){combatNotice="TOO FAR — MOVE CLOSER";combatNoticeUntil=now+1100;play(sClick);invalidate();return;}
+            combo=Math.min(99,combo+1);hitTicks=10;shakeTicks=4;mana=Math.min(maxMana,mana+4+focus);
             boolean critical=rng.nextInt(100)<Math.min(70,crit+focus*2);
-            int damage=actualAttack()+rng.nextInt(Math.max(3,actualAttack()/3+1));if(critical)damage=(int)(damage*1.85);
+            int damage=actualAttack()+rng.nextInt(Math.max(4,actualAttack()/3+1));if(critical)damage=(int)(damage*1.85);
             if(combo%4==0)damage+=actualAttack()/2+strength*6;
-            enemyHp-=damage;play(critical?sCrit:sHit);flashTicks=critical?4:1;
+            enemyHp-=damage;combatNotice=(critical?"CRITICAL  ":combo%4==0?"COMBO FINISH  ":"HIT  ")+damage;combatNoticeUntil=now+800;play(critical?sCrit:sHit);flashTicks=critical?5:2;
             if(enemyHp<=0){victory();}
-            else{
-                int enemyHit=(boss?19+region*5:10+region*5+level/3);
-                if(boss&&enemyHp<enemyMax/2)enemyHit+=12;
-                hp-=Math.max(3,enemyHit-actualDefense());if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-15);combo=0;flashTicks=6;}
-            }
             save();invalidate();
         }
         void victory(){
-            kills++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?120+region*35:18+region*10;xp+=boss?115+region*35:25+region*12;
+            kills++;stageWins++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?180+region*75:30+region*18;xp+=boss?240+level*20:42+level*7+region*18;
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
-            if(boss){bossKills++;play(sWin);gold+=60;maxHp+=8;attack+=2;}
-            if(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;maxMana+=12;mana=maxMana;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
+            if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guaranteed boss reward";lootNoticeUntil=System.currentTimeMillis()+5000;}
+            while(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;maxMana+=12;mana=maxMana;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
             hp=Math.min(actualMaxHp(),hp+Math.max(8,actualMaxHp()/12));
             spawnEnemy();save();
         }
         void spawnEnemy(){
-            boss=(kills>0&&kills%5==0&&bossKills<kills/5+1);
-            if(boss){enemyName="THE HOLLOW KING";enemyMax=260+level*38+region*75;enemyHp=enemyMax;play(sBoss);}
-            else{enemyType=rng.nextInt(5);enemyName=enemyLabel(enemyType);enemyMax=65+level*13+region*35+enemyType*9;enemyHp=enemyMax;}
-            combo=0;save();
+            boss=(kills>0&&kills%10==0&&bossKills<kills/10);
+            if(boss){String[] bn={"THE HOLLOW KING","EMBER COLOSSUS","FROST MOTHER","DROWNED ADMIRAL","ASTRAL DRAGON","THE UNMAKER"};enemyName=bn[Math.floorMod(region,bn.length)];enemyMax=430+level*48+region*160;enemyHp=enemyMax;play(sBoss);}
+            else{enemyType=rng.nextInt(7);enemyName=enemyLabel(enemyType);enemyMax=90+level*18+region*60+enemyType*15;enemyHp=enemyMax;}
+            heroX=105+rng.nextInt(32);enemyX=268+rng.nextInt(20);jumpUntil=0;nextEnemyAttack=System.currentTimeMillis()+1000;combo=0;save();
         }
         void riftBurst(){
             if(mana<25){play(sClick);return;}
