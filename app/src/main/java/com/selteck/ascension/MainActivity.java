@@ -371,6 +371,7 @@ public class MainActivity extends Activity {
             int z=currentZone(),n=relaysIn(z);String target;
             if(!regionUnlocked(z))target="THE REGION IS SEALED";
             else if(n<4)target="Activate signal relays  •  "+n+"/4";
+            else if(!bossDefeated[z]&&zoneKills[z]<killGoal(z))target="Hunt monsters  •  "+zoneKills[z]+"/"+killGoal(z);
             else if(!bossDefeated[z])target=bossSpawned[z]?"HUNT THE GUARDIAN":"Approach the Guardian Altar";
             else target=z==5?"THE FRONTIER IS YOURS • Keep exploring":"Zone secured • Travel to the next region";
             text(target,249,47,11,Color.WHITE,true);text("KILLS "+kills+"   •   RELAYS "+relaysTotal+"/24   •   CACHES "+openedCaches+"/12",249,64,8,col("#AAB7C6"),true);
@@ -457,7 +458,7 @@ public class MainActivity extends Activity {
         Landmark activeObjective(int z){
             if(!regionUnlocked(z))return null;
             for(Landmark q:points)if(q.zone==z&&q.type==0&&!q.used)return q;
-            if(!bossDefeated[z])for(Landmark q:points)if(q.zone==z&&q.type==2&&!q.used)return q;
+            if(!bossDefeated[z])for(Landmark q:points)if(q.zone==z&&q.type==2&&(!q.used||bossSpawned[z]))return q;
             if(z<5&&bossDefeated[z])return null;return null;
         }
         void spawnMobAroundPlayer(boolean big){
@@ -563,6 +564,7 @@ public class MainActivity extends Activity {
             }else if(q.type==2){
                 if(bossDefeated[q.zone]){notification("THIS GUARDIAN HAS FALLEN",900);return;}
                 if(!regionUnlocked(q.zone)||relaysIn(q.zone)<4){notification("ALTAR SEALED  •  STABILISE "+(4-relaysIn(q.zone))+" MORE RELAYS",1500);play(sEmpty);return;}
+                if(zoneKills[q.zone]<killGoal(q.zone)){notification("ALTAR SEALED  •  HUNT "+(killGoal(q.zone)-zoneKills[q.zone])+" MORE MONSTERS",1600);play(sEmpty);return;}
                 if(bossSpawned[q.zone]){notification("THE GUARDIAN IS ALREADY HUNTING YOU",1100);return;}
                 q.used=true;bossSpawned[q.zone]=true;spawnGuardian(q.zone);save();
             }else{
