@@ -176,7 +176,7 @@ public class MainActivity extends Activity {
             c.save();c.translate(x,y);c.scale(s,s);
             glow(0,36,38,color("#6440BC"),18);
             // coat tails and legs
-            paint(color("#16152A"));Path coat=new Path();coat.moveTo(-19,-6);coat.lineTo(-25,28);coat.lineTo(-13,22);coat.lineTo(0,32);coat.lineTo(12,22);coat.lineTo(25,29);coat.lineTo(18,-7);coat.close();c.drawPath(coat,p);
+            paint(color("#16152A"));Path coat=new Path();float flap=(float)Math.sin(System.currentTimeMillis()/105.0)*2.2f;coat.moveTo(-19,-6);coat.lineTo(-25,28+flap);coat.lineTo(-13,22-flap);coat.lineTo(0,32);coat.lineTo(12,22+flap);coat.lineTo(25,29-flap);coat.lineTo(18,-7);coat.close();c.drawPath(coat,p);
             paint(armorPower>15?rarityColor(armorRarity):color("#292344"));c.drawRoundRect(-17,-12,17,19,7,7,p);
             paint(color("#0D1020"));c.drawRoundRect(-15,16,-4,38,4,4,p);c.drawRoundRect(5,16,16,38,4,4,p);
             paint(color("#9B7AFF"));c.drawRoundRect(-17,34,-2,40,2,2,p);c.drawRoundRect(3,34,18,40,2,2,p);
@@ -275,8 +275,13 @@ public class MainActivity extends Activity {
             glow(0,0,65,realmAccent(),30);
             // crown spikes
             paint(color("#211329"));Path crown=new Path();crown.moveTo(-38,-28);crown.lineTo(-48,-66);crown.lineTo(-22,-49);crown.lineTo(-8,-80);crown.lineTo(4,-48);crown.lineTo(28,-73);crown.lineTo(29,-43);crown.lineTo(45,-54);crown.lineTo(37,-21);crown.close();c.drawPath(crown,p);
+            // each guardian has a distinct silhouette beyond its palette
+            if(region==4){paint(color("#3B2862"));Path wings=new Path();wings.moveTo(-24,-18);wings.lineTo(-68,-52);wings.lineTo(-60,-12);wings.lineTo(-49,8);wings.lineTo(-22,3);wings.lineTo(23,-18);wings.lineTo(66,-52);wings.lineTo(58,-10);wings.lineTo(45,9);wings.lineTo(22,3);wings.close();c.drawPath(wings,p);line(-62,-44,-48,2,realmAccent(),2);line(61,-43,47,2,realmAccent(),2);}
+            if(region==3){paint(color("#17404D"));for(int i=0;i<5;i++){Path tent=new Path();tent.moveTo(-26+i*13,10);tent.quadTo(-45+i*21,34+(i%2)*9,-38+i*20,48);c.drawPath(tent,p);}}
+            if(region==2){paint(color("#A1DDF1"));Path ice=new Path();ice.moveTo(-30,-27);ice.lineTo(-39,-62);ice.lineTo(-18,-42);ice.lineTo(-8,-74);ice.lineTo(3,-43);ice.lineTo(20,-63);ice.lineTo(30,-27);ice.close();c.drawPath(ice,p);}
+            if(region==5){paint(Color.argb(130,Color.red(realmAccent()),Color.green(realmAccent()),Color.blue(realmAccent())));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);c.drawOval(-54,-80,54,34,p);c.drawOval(-64,-90,64,44,p);p.setStyle(Paint.Style.FILL);}
             // massive cloak
-            paint(color("#171120"));Path cloak=new Path();cloak.moveTo(-35,-26);cloak.lineTo(-51,10);cloak.lineTo(-58,49);cloak.lineTo(-29,36);cloak.lineTo(0,56);cloak.lineTo(26,39);cloak.lineTo(54,49);cloak.lineTo(43,4);cloak.lineTo(34,-27);cloak.close();c.drawPath(cloak,p);
+            paint(color("#171120"));Path cloak=new Path();float flap=(float)Math.sin(System.currentTimeMillis()/125.0)*4f;cloak.moveTo(-35,-26);cloak.lineTo(-51,10);cloak.lineTo(-58,49+flap);cloak.lineTo(-29,36+flap*0.4f);cloak.lineTo(0,56);cloak.lineTo(26,39-flap*0.3f);cloak.lineTo(54,49-flap);cloak.lineTo(43,4);cloak.lineTo(34,-27);cloak.close();c.drawPath(cloak,p);
             paint(realmAccent());Path armor=new Path();armor.moveTo(-28,-28);armor.lineTo(-19,-44);armor.lineTo(0,-50);armor.lineTo(20,-43);armor.lineTo(30,-23);armor.lineTo(21,15);armor.lineTo(0,31);armor.lineTo(-22,12);armor.close();c.drawPath(armor,p);
             // runic ribs
             for(int i=0;i<4;i++){line(-18+i*10,-16,-12+i*8,13,realmAccent(),2);}
@@ -395,7 +400,7 @@ public class MainActivity extends Activity {
             paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);
             txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
             rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
-            center(unlocked?"READY":"Lv / boss gate",r-54,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
+            center(!unlocked?"BOSS GATE":(regionKills[idx]>0&&regionKills[idx]%10==0&&regionBosses[idx]<regionKills[idx]/10?"BOSS READY":"WAVE "+(regionKills[idx]%10)+"/10"),r-54,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
