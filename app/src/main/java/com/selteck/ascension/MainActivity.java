@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
             header();
             if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)quests();else world();
             nav(); if(flashTicks>0){rect(0,0,390,735,Color.argb(Math.min(90,flashTicks*12),210,85,140),0);flashTicks--;}
-            c.restore();postInvalidateDelayed(45);
+            if(hitTicks>0)hitTicks--; c.restore();postInvalidateDelayed(45);
         }
         void header(){
             txt("P R O J E C T   /   A S C E N S I O N",18,28,9,color("#AAA1D2"),true);
@@ -384,11 +384,10 @@ public class MainActivity extends Activity {
                 if(boss&&enemyHp<enemyMax/2)enemyHit+=12;
                 hp-=Math.max(3,enemyHit-actualDefense());if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-15);combo=0;flashTicks=6;}
             }
-            if(kills%2==0&&kills>0)eventProgress=Math.min(10,eventProgress+1);
             save();invalidate();
         }
         void victory(){
-            kills++;gold+=boss?120+region*35:18+region*10;xp+=boss?115+region*35:25+region*12;
+            kills++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?120+region*35:18+region*10;xp+=boss?115+region*35:25+region*12;
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
             if(boss){bossKills++;play(sWin);gold+=60;maxHp+=8;attack+=2;}
