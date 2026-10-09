@@ -33,6 +33,9 @@ public class MainActivity extends Activity {
         int tab=0, level, xp, gold, hp, maxHp, attack, defense, kills, skillPoints, mana, maxMana, dailyClaimed;
         int strength, vitality, focus, crit, potions, shards, bossKills, questClaimed, eventClaimed;
         int weaponTier, armorTier, relicTier, combo, eventProgress, lastHit;
+        int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins;
+        float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
+        String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
         boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false;
         String enemyName="RIFT WRAITH";
@@ -51,6 +54,7 @@ public class MainActivity extends Activity {
             eventClaimed=prefs.getInt("eventClaimed",0); weaponTier=prefs.getInt("weaponTier",1);
             armorTier=prefs.getInt("armorTier",0); relicTier=prefs.getInt("relicTier",0);
             region=prefs.getInt("region",0); eventProgress=prefs.getInt("eventProgress",0);
+            weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0);
             enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);
             enemyMax=prefs.getInt("enemyMax",90+level*9); enemyHp=prefs.getInt("enemyHp",enemyMax);
             if(hp<1) hp=maxHp;
@@ -113,15 +117,15 @@ public class MainActivity extends Activity {
             .putInt("strength",strength).putInt("vitality",vitality).putInt("focus",focus).putInt("crit",crit).putInt("potions",potions)
             .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
             .putInt("weaponTier",weaponTier).putInt("armorTier",armorTier).putInt("relicTier",relicTier).putInt("region",region)
-            .putInt("eventProgress",eventProgress).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
+            .putInt("eventProgress",eventProgress).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
             .putLong("eventSeed",eventSeed).apply();}
-        int xpNeed(){return 100+level*42;}
-        int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2;}
-        int actualDefense(){return defense+armorTier*3+vitality*2+relicTier;}
-        int actualMaxHp(){return maxHp+armorTier*15+vitality*18;}
+        int xpNeed(){return 190+level*78+level*level*3;}
+        int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2+weaponPower;}
+        int actualDefense(){return defense+armorTier*3+vitality*2+relicTier+armorPower;}
+        int actualMaxHp(){return maxHp+armorTier*15+vitality*18+armorPower*3;}
         int upgradeCost(){return 55+weaponTier*62+level*12;}
         int levelCost(){return 2+level/3;}
-        String enemyLabel(int i){String[] a={"RIFT WRAITH","ASHEN STALKER","FROST HOUND","DUSK REVENANT","ABYSS KNIGHT"};return a[Math.floorMod(i,a.length)];}
+        String enemyLabel(int i){String[][] a={{"RIFT WRAITH","VEIL STALKER","GRAVE MITE","DUSK REVENANT","ABYSS KNIGHT","RIFT BANSHEE","VOID HOUND"},{"ASHEN STALKER","CINDER WOLF","EMBER GOLEM","SCORCH WRAITH","ASHEN BRUTE","PYRE WITCH","CHAR HOUND"},{"FROST HOUND","GLACIER WRAITH","ICEBOUND KNIGHT","SNOW WIDOW","FROST BRUTE","CRYSTAL STALKER","RIME GHOUL"},{"DROWNED GUARD","TIDE WRAITH","SUNKEN KNIGHT","DEEP MAW","CORAL WITCH","ABYSSAL EEL","SALT GOLEM"},{"STAR HUNTER","ASTRAL WOLF","COMET WRAITH","FALLEN ORACLE","STARFORGED KNIGHT","NOVA WITCH","COSMIC MAW"},{"HOLLOW KNIGHT","VOID LEECH","NULL STALKER","REALM EATER","CROWN WRAITH","OBLIVION BRUTE","THE UNMAKER"}};return a[Math.floorMod(region,a.length)][Math.floorMod(i, a[Math.floorMod(region,a.length)].length)];}
         @Override protected void onDraw(Canvas canvas){
             super.onDraw(canvas);c=canvas;sx=getWidth()/390f;sy=getHeight()/844f;c.save();c.scale(sx,sy);
             paint(color("#080914"));c.drawRect(0,0,390,844,p);
