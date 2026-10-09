@@ -888,7 +888,7 @@ public class ZombieActivity extends Activity {
             // Floor tiles, damaged linoleum, pooled dark stains and scattered debris.
             for(int x=-10;x<=10;x+=2)for(int z=-10;z<=10;z+=2)
                 m.box(x,0.012f,z,1.94f,0.035f,1.94f,((x+z)%4==0)?0xff77786e:0xff696b62);
-            m.box(-11,3f,0,0.45f,6f,24,wall);m.box(11,3f,0,0.45f,24,wall);
+            m.box(-11,3f,0,0.45f,6f,24,wall);m.box(11,3f,0,0.45f,6f,24,wall);
             m.box(0,3f,-11,22,6f,0.45f,wall);
             m.box(-7.0f,3f,11,8.0f,6f,0.45f,wall);m.box(7.0f,3f,11,8.0f,6f,0.45f,wall);
             m.box(0,5.98f,0,22,0.16f,22,shade(wall,0.78f));
