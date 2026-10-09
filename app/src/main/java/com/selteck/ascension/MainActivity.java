@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.*;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
+import android.media.MediaPlayer;
 import android.view.MotionEvent;
 import android.view.View;
 import java.io.File;
@@ -42,7 +43,7 @@ public class MainActivity extends Activity {
         boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false;
         String enemyName="RIFT WRAITH";
         long eventSeed;
-        SoundPool sounds; int sHit, sCrit, sBoss, sLevel, sBuy, sHeal, sWin, sClick, sSkill;
+        SoundPool sounds; MediaPlayer ambience; int sHit, sCrit, sBoss, sLevel, sBuy, sHeal, sWin, sClick, sSkill;
         long lastAttackAt=0;
         GameView() {
             super(MainActivity.this);
@@ -67,7 +68,7 @@ public class MainActivity extends Activity {
             long today=System.currentTimeMillis()/86400000L; if(eventSeed!=today){eventSeed=today;eventProgress=0;eventClaimed=0;dailyClaimed=0;}
             mana=Math.max(0,Math.min(maxMana,mana));
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
-            initSounds();
+            initSounds(); initAmbient();
             setContentDescription("PROJECT ASCENSION dark fantasy role-playing game");
             postInvalidateDelayed(40);
         }
@@ -101,10 +102,12 @@ public class MainActivity extends Activity {
             FileOutputStream out=new FileOutputStream(f); out.write(b.array()); out.close();
             return sounds.load(f.getAbsolutePath(),1);
         }
+        void initAmbient(){try{int rate=22050;double seconds=8.0;int n=(int)(rate*seconds);ByteBuffer b=ByteBuffer.allocate(44+n*2).order(ByteOrder.LITTLE_ENDIAN);b.put(new byte[]{'R','I','F','F'});b.putInt(36+n*2);b.put(new byte[]{'W','A','V','E','f','m','t',' '});b.putInt(16);b.putShort((short)1);b.putShort((short)1);b.putInt(rate);b.putInt(rate*2);b.putShort((short)2);b.putShort((short)16);b.put(new byte[]{'d','a','t','a'});b.putInt(n*2);for(int i=0;i<n;i++){double t=i/(double)rate;double env=Math.pow(Math.max(0,Math.sin(Math.PI*t/seconds)),0.45);double wave=Math.sin(2*Math.PI*55*t)*0.24+Math.sin(2*Math.PI*82.5*t)*0.20+Math.sin(2*Math.PI*110*t+Math.sin(t*0.5))*0.12+Math.sin(2*Math.PI*165*t)*0.075;wave+=Math.sin(2*Math.PI*41.2*t)*0.08*Math.sin(t*0.8);short v=(short)(Math.max(-1,Math.min(1,wave*env*0.32))*32767);b.putShort(v);}File f=new File(getCacheDir(),"asc_ambience.wav");FileOutputStream out=new FileOutputStream(f);out.write(b.array());out.close();ambience=new MediaPlayer();ambience.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());ambience.setDataSource(f.getAbsolutePath());ambience.prepare();ambience.setLooping(true);ambience.setVolume(0.22f,0.22f);if(audioOn)ambience.start();}catch(Exception ignored){if(ambience!=null){try{ambience.release();}catch(Exception ignored2){}ambience=null;}}}
         void play(int id) { if(audioOn&&sounds!=null&&id!=0) try { sounds.play(id,1,1,1,0,0.9f+rng.nextFloat()*0.22f); } catch(Exception ignored){} }
-        void pauseAudio(){if(sounds!=null)sounds.autoPause();}
-        void resumeAudio(){if(sounds!=null)sounds.autoResume();}
-        void releaseAudio(){if(sounds!=null){sounds.release();sounds=null;}}
+        void toggleAudio(){audioOn=!audioOn;if(ambience!=null){try{if(audioOn){if(!ambience.isPlaying())ambience.start();}else if(ambience.isPlaying())ambience.pause();}catch(Exception ignored){}}if(audioOn)play(sClick);}
+        void pauseAudio(){if(sounds!=null)sounds.autoPause();if(ambience!=null)try{if(ambience.isPlaying())ambience.pause();}catch(Exception ignored){}}
+        void resumeAudio(){if(sounds!=null)sounds.autoResume();if(audioOn&&ambience!=null)try{if(!ambience.isPlaying())ambience.start();}catch(Exception ignored){}}
+        void releaseAudio(){if(sounds!=null){sounds.release();sounds=null;}if(ambience!=null){try{ambience.stop();}catch(Exception ignored){}ambience.release();ambience=null;}}
         int color(String h){return Color.parseColor(h);}
         void paint(int co){p.reset();p.setAntiAlias(true);p.setColor(co);}
         void rect(float l,float t,float r,float b,int co,float rad){paint(co);c.drawRoundRect(l,t,r,b,rad,rad,p);}
@@ -402,7 +405,7 @@ public class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent e){
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             float x=e.getX()/sx,y=e.getY()/sy;
-            if(y>=735){if(x>=330){audioOn=!audioOn;if(audioOn)play(sClick);}else{tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);}invalidate();return true;}
+            if(y>=735){if(x>=330){toggleAudio();}else{tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);}invalidate();return true;}
             if(tab==0){
                 if(y>=507&&y<=570){if(x<90){heroX=Math.max(52,heroX-34);lastStep=System.currentTimeMillis();}else if(x<160){jumpUntil=System.currentTimeMillis()+680;heroX=Math.min(322,heroX+8);play(sSkill);}else if(x<278)attackEnemy();else{heroX=Math.min(322,heroX+34);lastStep=System.currentTimeMillis();} }
                 else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else tab=3;}
@@ -417,7 +420,7 @@ public class MainActivity extends Activity {
                 else if(y>=476&&y<=563)upgradeSkill(2);
                 else if(y>=574&&y<=661)upgradeSkill(3);
             }else if(tab==3){
-                if(y>=202&&y<=506){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
+                if(y>=445&&y<=505){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
                 else if(y>=507&&y<=570){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
             }else if(tab==4){
                 if(y>=199&&y<=303&&eventProgress>=10&&eventClaimed==0){gold+=180;shards+=2;eventClaimed=1;play(sWin);save();}
