@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
         int weaponTier, armorTier, relicTier, combo, eventProgress, lastHit;
         int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins, weaponCollection=1, armorCollection=1;
         int[] ownedWeaponPower=new int[8], ownedWeaponRarity=new int[8], ownedArmorPower=new int[8], ownedArmorRarity=new int[8];
+        int[] regionKills=new int[6], regionBosses=new int[6];
         float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
@@ -59,6 +60,7 @@ public class MainActivity extends Activity {
             region=prefs.getInt("region",0); eventProgress=prefs.getInt("eventProgress",0);
             weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0); weaponCollection=prefs.getInt("weaponCollection",1); armorCollection=prefs.getInt("armorCollection",1);
             for(int i=0;i<8;i++){ownedWeaponPower[i]=prefs.getInt("wp"+i,0);ownedWeaponRarity[i]=prefs.getInt("wr"+i,0);ownedArmorPower[i]=prefs.getInt("ap"+i,0);ownedArmorRarity[i]=prefs.getInt("ar"+i,0);}
+            for(int i=0;i<6;i++){regionKills[i]=prefs.getInt("rk"+i,i==0?Math.max(0,kills-bossKills):0);regionBosses[i]=prefs.getInt("rb"+i,i==0?bossKills:0);}
             enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);
             enemyMax=prefs.getInt("enemyMax",90+level*9); enemyHp=prefs.getInt("enemyHp",enemyMax);
             if(hp<1) hp=maxHp;
@@ -124,7 +126,7 @@ public class MainActivity extends Activity {
             .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
             .putInt("weaponTier",weaponTier).putInt("armorTier",armorTier).putInt("relicTier",relicTier).putInt("region",region)
             .putInt("eventProgress",eventProgress).putInt("weaponCollection",weaponCollection).putInt("armorCollection",armorCollection).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
-            .putLong("eventSeed",eventSeed).apply();}
+            .putLong("eventSeed",eventSeed).apply();SharedPreferences.Editor e=prefs.edit();for(int i=0;i<6;i++)e.putInt("rk"+i,regionKills[i]).putInt("rb"+i,regionBosses[i]);e.apply();}
         int xpNeed(){return 190+level*78+level*level*3;}
         int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2+weaponPower;}
         int actualDefense(){return defense+armorTier*3+vitality*2+relicTier+armorPower;}
@@ -312,7 +314,7 @@ public class MainActivity extends Activity {
             rect(r-58,t+43,r-7,b-5,color("#393057"),6);center(type==3?"BUY":cost+" G",r-32,t+57,7,color("#F0D48C"),true);
         }
         String regionName(){String[] n={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};return n[Math.floorMod(region,n.length)];}
-        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};return r==0||(level>=req[r]&&bossKills>=r);}
+        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};if(r==0)return true;if(level<req[r])return false;for(int i=0;i<r;i++)if(regionBosses[i]<1)return false;return true;}
         String[] weaponNames(){return new String[]{"Riftfang","Mooncleaver","Sunspike","Frostbrand","Ashen Katana","Voidreaver","Crownpiercer","Starfall Edge"};}
         String[] armorNames(){return new String[]{"Warden Coat","Ashguard","Frostplate","Tidebound Mail","Astral Mantle","Hollow Aegis","Riftwalker Suit","Eclipse Crown"};}
         String rarityName(int r){String[] n={"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};return n[Math.max(0,Math.min(5,r))];}
@@ -450,7 +452,7 @@ public class MainActivity extends Activity {
             save();invalidate();
         }
         void victory(){
-            kills++;stageWins++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?180+region*75:30+region*18;xp+=boss?240+level*20:42+level*7+region*18;
+            kills++;stageWins++;if(boss)regionBosses[region]++;else regionKills[region]++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?240+region*90:34+region*20;xp+=boss?420+level*35+region*80:55+level*10+region*30;
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
             if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guaranteed boss reward";lootNoticeUntil=System.currentTimeMillis()+5000;}
@@ -459,7 +461,7 @@ public class MainActivity extends Activity {
             spawnEnemy();save();
         }
         void spawnEnemy(){
-            boss=(kills>0&&kills%10==0&&bossKills<kills/10);
+            boss=(regionKills[region]>0&&regionKills[region]%10==0&&regionBosses[region]<regionKills[region]/10);
             if(boss){String[] bn={"THE HOLLOW KING","EMBER COLOSSUS","FROST MOTHER","DROWNED ADMIRAL","ASTRAL DRAGON","THE UNMAKER"};enemyName=bn[Math.floorMod(region,bn.length)];enemyMax=430+level*48+region*160;enemyHp=enemyMax;play(sBoss);}
             else{enemyType=rng.nextInt(7);enemyName=enemyLabel(enemyType);enemyMax=90+level*18+region*60+enemyType*15;enemyHp=enemyMax;}
             heroX=105+rng.nextInt(32);enemyX=268+rng.nextInt(20);jumpUntil=0;nextEnemyAttack=System.currentTimeMillis()+1000;combo=0;save();
