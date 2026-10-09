@@ -315,7 +315,7 @@ public class MainActivity extends Activity {
             questCard(18,316,372,407,"01","THE HUNTER'S PATH","Defeat 5 enemies",Math.min(5,kills),5,"+90 gold");
             questCard(18,420,372,511,"02","BOSS BREAKER","Defeat 1 raid boss",Math.min(1,bossKills),1,"+2 shards");
             questCard(18,524,372,615,"03","RELIC SEEKER","Collect 3 relic shards",Math.min(3,shards),3,"+1 potion");
-            rect(18,628,372,715,color("#17172F"),11);txt("DAILY BLESSING",31,650,10,color("#F1D58D"),true);txt("Earn a reward after your next hunt.",31,670,8,color("#A5A1C4"),false);center(eventClaimed>0?"TODAY'S GIFT CLAIMED":"KILL 1 ENEMY TO CHARGE",195,699,8,color("#BCA3FF"),true);
+            rect(18,628,372,715,color("#17172F"),11);txt("DAILY BLESSING",31,650,10,color("#F1D58D"),true);txt("Earn a reward after your next hunt.",31,670,8,color("#A5A1C4"),false);center(dailyClaimed>0?"TODAY'S GIFT CLAIMED":kills>0?"TAP TO CLAIM DAILY GIFT":"KILL 1 ENEMY TO CHARGE",195,699,8,color("#BCA3FF"),true);
         }
         void questCard(int l,int t,int r,int b,String num,String name,String desc,int progress,int goal,String reward){
             rect(l,t,r,b,color("#19182F"),10);txt(num,l+11,t+20,8,color("#A990E8"),true);txt(name,l+38,t+20,9,Color.WHITE,true);txt(desc,l+38,t+37,8,color("#A5A1C4"),false);
