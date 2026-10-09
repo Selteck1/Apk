@@ -1,0 +1,7 @@
+Build: SUCCESS
+Workflow run: 37944239639
+Source commit: 4183d7ec5b92929488bfc3fe541f97fcc3e4d657
+APK size: 102073 bytes
+SHA-256: 5818d4eccb3b8dd681f523d521bd5c7b094ad3b6f82891541250fd59db2131ef
+Package: com.selteck.deaddistrict
+Version: 1.0.0
