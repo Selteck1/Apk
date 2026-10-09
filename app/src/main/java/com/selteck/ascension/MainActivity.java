@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             rect(r-58,t+43,r-7,b-5,color("#393057"),6);center(type==3?"BUY":cost+" G",r-32,t+57,7,color("#F0D48C"),true);
         }
         String regionName(){String[] n={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};return n[Math.floorMod(region,n.length)];}
-        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};if(r==0)return true;if(level<req[r])return false;for(int i=0;i<r;i++)if(regionBosses[i]<1)return false;return true;}
+        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};if(r==0)return true;if(level<req[r])return false;for(int i=0;i<r;i++)if(regionBosses[i]<3)return false;return true;}
         String[] weaponNames(){return new String[]{"Riftfang","Mooncleaver","Sunspike","Frostbrand","Ashen Katana","Voidreaver","Crownpiercer","Starfall Edge"};}
         String[] armorNames(){return new String[]{"Warden Coat","Ashguard","Frostplate","Tidebound Mail","Astral Mantle","Hollow Aegis","Riftwalker Suit","Eclipse Crown"};}
         String rarityName(int r){String[] n={"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};return n[Math.max(0,Math.min(5,r))];}
@@ -424,7 +424,7 @@ public class MainActivity extends Activity {
             else{glow(r-42,t+33,19,co,10);paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);}
             txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
             rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
-            center(!unlocked?"BOSS GATE":(regionKills[idx]>0&&regionKills[idx]%10==0&&regionBosses[idx]<regionKills[idx]/10?"BOSS READY":"WAVE "+(regionKills[idx]%10)+"/10"),r-129,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
+            center(!unlocked?"GATE LOCKED":(regionKills[idx]>0&&regionKills[idx]%60==0&&regionBosses[idx]<regionKills[idx]/60?"GUARDIAN READY":"GUARDIAN "+regionBosses[idx]+"/3"),r-129,t+65,6,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
@@ -481,7 +481,7 @@ public class MainActivity extends Activity {
             save();invalidate();
         }
         void victory(){
-            kills++;stageWins++;if(boss)regionBosses[region]++;else regionKills[region]++;eventProgress=Math.min(10,eventProgress+1);gold+=boss?240+region*90:34+region*20;xp+=boss?420+level*35+region*80:55+level*10+region*30;
+            kills++;stageWins++;if(boss)regionBosses[region]++;else{regionKills[region]++;if(regionKills[region]%10==0){shards++;gold+=70;lootNotice="WAVE CACHE • "+regionName();lastLoot="+1 shard and 70 gold";lootNoticeUntil=System.currentTimeMillis()+4000;play(sWin);}}eventProgress=Math.min(10,eventProgress+1);gold+=boss?320+region*110:34+region*20;xp+=boss?720+level*55+region*120:48+level*8+region*25;
             if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
             if(rng.nextInt(100)<18){potions++;}
             if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guaranteed boss reward";lootNoticeUntil=System.currentTimeMillis()+5000;}
@@ -490,9 +490,9 @@ public class MainActivity extends Activity {
             spawnEnemy();save();
         }
         void spawnEnemy(){
-            boss=(regionKills[region]>0&&regionKills[region]%10==0&&regionBosses[region]<regionKills[region]/10);
-            if(boss){String[] bn={"THE HOLLOW KING","EMBER COLOSSUS","FROST MOTHER","DROWNED ADMIRAL","ASTRAL DRAGON","THE UNMAKER"};enemyName=bn[Math.floorMod(region,bn.length)];enemyMax=430+level*48+region*160;enemyHp=enemyMax;play(sBoss);}
-            else{enemyType=rng.nextInt(7);enemyName=enemyLabel(enemyType);enemyMax=90+level*18+region*60+enemyType*15;enemyHp=enemyMax;}
+            boss=(regionKills[region]>0&&regionKills[region]%60==0&&regionBosses[region]<regionKills[region]/60);
+            if(boss){String[] bn={"THE HOLLOW KING","EMBER COLOSSUS","FROST MOTHER","DROWNED ADMIRAL","ASTRAL DRAGON","THE UNMAKER"};enemyName=bn[Math.floorMod(region,bn.length)]+" • SEAL "+(regionBosses[region]+1);enemyMax=900+level*65+region*220;enemyHp=enemyMax;play(sBoss);}
+            else{enemyType=rng.nextInt(7);enemyName=enemyLabel(enemyType);enemyMax=125+level*23+region*75+enemyType*19;enemyHp=enemyMax;}
             heroX=105+rng.nextInt(32);enemyX=268+rng.nextInt(20);jumpUntil=0;nextEnemyAttack=System.currentTimeMillis()+1000;combo=0;save();
         }
         void riftBurst(){
