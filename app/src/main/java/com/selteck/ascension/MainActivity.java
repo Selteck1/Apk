@@ -176,6 +176,7 @@ public class MainActivity extends Activity {
         void addXP(int amount){xp+=amount;while(xp>=needXp()){xp-=needXp();level++;maxHealth+=9;health=Math.min(maxHealth,health+34);notification("LEVEL UP  •  LEVEL "+level+"  •  MAX HP +9",2600);play(sLevel);for(int i=0;i<24;i++)particle(px,py,accent(currentZone()),2.8f,20); }xpNext=needXp();}
         boolean regionUnlocked(int z){return z==0||bossDefeated[z-1];}
         int relaysIn(int z){int n=0;for(Landmark q:points)if(q.zone==z&&q.type==0&&q.used)n++;return n;}
+        boolean guardianAlive(){for(Mob m:mobs)if(m.big&&m.alive)return true;return false;}
         int killGoal(int z){return 60+25*z;}
         Landmark nearestLandmark(float x,float y,boolean actionableOnly){Landmark best=null;float bd=Float.MAX_VALUE;for(Landmark q:points){if(actionableOnly&&q.used&&q.type!=3)continue;float d=dist(x,y,q.x,q.y);if(d<bd){bd=d;best=q;}}return best;}
         float dist(float x1,float y1,float x2,float y2){return (float)Math.hypot(x1-x2,y1-y2);}
@@ -433,10 +434,10 @@ public class MainActivity extends Activity {
             if(aimPid>=0){float dx=aimTouchX-770,dy=aimTouchY-430,dl=(float)Math.hypot(dx,dy);if(dl>10){aimX=dx/Math.max(41,dl);aimY=dy/Math.max(41,dl);aimAngle=(float)Math.atan2(aimY,aimX);aimActive=true;}}else{aimActive=false;aimX=0;aimY=0;}
             boolean dashing=now<dashUntil;float speed=dashing?565:210;
             movePlayer(moveX*speed*dt,moveY*speed*dt);
-            if(firing&&reloadUntil<=now)fireGun(now);
             if(reloadUntil>0&&reloadUntil<=now){finishReload();reloadUntil=0;}
+            if(firing&&reloadUntil<=now)fireGun(now);
             updateMobs(dt,now);updateShots(dt,now);updateDrops(now);updateSparks(dt);
-            if(mobs.size()<12&&now-lastSpawn>1700&&now>dashUntil){spawnMobAroundPlayer(false);lastSpawn=now;}
+            if(mobs.size()<9&&now-lastSpawn>2800&&now>dashUntil&&!guardianAlive()){spawnMobAroundPlayer(false);lastSpawn=now;}
             if(now-lastSave>2400){save();lastSave=now;}
             // Periodic bounty keeps exploration rewarding beyond the primary objectives.
             if(kills>0&&kills%25==0&&playerDamage<kills){playerDamage=kills;coins+=120;medkits++;notification("BOUNTY COMPLETE  •  +120 CREDITS  •  +1 MEDKIT",3000);play(sQuest);save();}
