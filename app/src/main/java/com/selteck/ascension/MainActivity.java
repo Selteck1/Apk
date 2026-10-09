@@ -105,7 +105,7 @@ public class MainActivity extends Activity {
         void centre(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));p.setShadowLayer(2,0,1,Color.argb(180,0,0,0));c.drawText(s,x-p.measureText(s)/2,y,p);p.clearShadowLayer();}
         void circle(float x,float y,float r,int co){paint(co);c.drawCircle(x,y,r,p);}
         void glow(float x,float y,float r,int co,float blur){paint(co);p.setMaskFilter(new BlurMaskFilter(blur,BlurMaskFilter.Blur.NORMAL));c.drawCircle(x,y,r,p);p.setMaskFilter(null);}
-        void fillGradient(float l,float t,float r,float b,int a,int z,float radius){paint(Color.WHITE);p.setShader(new LinearGradient(l,t,r,b,a,z,Shader.TileMode.CLAMP);c.drawRoundRect(l,t,r,b,radius,radius,p);p.setShader(null);}
+        void fillGradient(float l,float t,float r,float b,int a,int z,float radius){paint(Color.WHITE);p.setShader(new LinearGradient(l,t,r,b,a,z,Shader.TileMode.CLAMP));c.drawRoundRect(l,t,r,b,radius,radius,p);p.setShader(null);}
 
         void loadArt(){
             try{
@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
         int accent(int z){int[] a={col("#7DDCA2"),col("#F29B5D"),col("#90DFFF"),col("#55D7C4"),col("#B69AFF"),col("#FF6C9F")};return a[Math.floorMod(z,6)];}
         int groundColor(int z){int[] a={col("#253C31"),col("#493129"),col("#243B4B"),col("#1E3F42"),col("#312849"),col("#321C32")};return a[Math.floorMod(z,6)];}
         int terrainNoise(int x,int y){int n=x*374761393+y*668265263+0x27d4eb2d;n=(n^(n>>>13))*1274126177;return (n^(n>>>16))&0x7fffffff;}
-        int shade(int color,int amount){return Color.rgb(Math.max(0,Math.min(255,Color.red(color)+amount)),Math.max(0,Math.min(255,Color.green(color)+amount)),Math.max(0,Math.min(255,Color.blue(color)+amount));}
+        int shade(int color,int amount){return Color.rgb(Math.max(0,Math.min(255,Color.red(color)+amount)),Math.max(0,Math.min(255,Color.green(color)+amount)),Math.max(0,Math.min(255,Color.blue(color)+amount)));}
         void makeLandmarks(){
             for(int z=0;z<6;z++){
                 int row=z<3?0:1,gridCol=row==0?z:5-z;float ox=gridCol*ZONE,oy=row*ZONE;
@@ -210,7 +210,7 @@ public class MainActivity extends Activity {
             paint(col("#10131B"));c.drawRect(0,0,W,H,p);
             float aimCamX=Math.max(0,Math.min(WORLD_W-W,px-W/2f)),aimCamY=Math.max(0,Math.min(WORLD_H-H,py-H/2f));camX=aimCamX;camY=aimCamY;
             c.save();c.translate(-camX,-camY);
-            drawTerrain();drawRoads();drawProps(false);drawLandmarks();drawDrops();drawShots();drawMobs();drawPlayer();drawProps(true);drawWorldEdges();
+            drawTerrain();drawRoads();drawProps(false);drawLandmarks();drawDrops();drawShots();drawMobs();drawPlayer();drawProps(true);drawSparks();drawWorldEdges();
             c.restore();
             drawHUD(now);drawControls(now);if(mapOpen)drawFullMap();if(now<damageFlashUntil){box(0,0,W,H,Color.argb(42,255,38,74),0);}
             if(now<noticeUntil)drawNotice(now);
@@ -456,7 +456,7 @@ public class MainActivity extends Activity {
                 if(now<m.stunUntil)continue;
                 m.angle=(float)Math.atan2(dy,dx);
                 if(m.type==2&&!m.big&&d<350&&d>160){
-                    m.x-=dx/(d+0.01f)*m.speedSafe()*dt;m.y-=dy/(d+0.01f)*m.speedSafe()*dt;
+                    m.x-=dx/(d+0.01f)*speedSafe()*dt;m.y-=dy/(d+0.01f)*m.speedSafe()*dt;
                     if(now>m.nextAttack){m.nextAttack=now+1750;shootEnemy(m,7+m.zone*2,260,0);play(sHit);}
                 }else if(m.type==5&&!m.big&&d<250&&d>95){
                     float vx=-dy/(d+0.01f),vy=dx/(d+0.01f);m.x+=vx*75*dt;m.y+=vy*75*dt;if(now>m.nextAttack){m.nextAttack=now+1450;shootEnemy(m,8+m.zone*2,300,0);}
@@ -520,7 +520,8 @@ public class MainActivity extends Activity {
                 drops.remove(i);save();
             }else if(now-d.born>90000)drops.remove(i);}
         }
-        void updateSparks(float dt){for(int i=sparks.size()-1;i>=0;i--){Spark s=sparks.get(i);s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=0.92f;s.vy*=0.92f;s.life--;if(s.life<=0)sparks.remove(i);}for(int i=sparks.size()-1;i>=0;i--){Spark s=sparks.get(i);circle(s.x,s.y,s.size,s.color);}}
+        void updateSparks(float dt){for(int i=sparks.size()-1;i>=0;i--){Spark s=sparks.get(i);s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=0.92f;s.vy*=0.92f;s.life--;if(s.life<=0)sparks.remove(i);}}
+        void drawSparks(){for(Spark s:sparks)if(visible(s.x,s.y,5))circle(s.x,s.y,s.size,s.color);}
         void particle(float x,float y,int color,float speed,int life){double a=rng.nextDouble()*Math.PI*2;float v=rng.nextFloat()*speed;sparks.add(new Spark(x,y,(float)Math.cos(a)*v,(float)Math.sin(a)*v,1.2f+rng.nextFloat()*2.5f,color,life));if(sparks.size()>260)sparks.remove(0);}
 
         void interact(){
