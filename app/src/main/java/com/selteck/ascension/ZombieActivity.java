@@ -107,7 +107,7 @@ public class ZombieActivity extends Activity {
                 float d=dp(1);
                 rounded(c,dp(14),dp(12),dp(330),dp(76),dp(12),Color.argb(205,8,16,19));
                 label(c,"DEAD DISTRICT",dp(27),dp(31),dp(15),Color.rgb(228,239,232),true);
-                label(c,session.cityName(session.cityAt(session.px,session.pz)).toUpperCase(),dp(27),dp(49),dp(10),Color.rgb(126,213,164),true);
+                label(c,session.cityName(session.inside?session.insideCity:session.cityAt(session.px,session.pz)).toUpperCase(),dp(27),dp(49),dp(10),Color.rgb(126,213,164),true);
                 label(c,"УРОВЕНЬ "+session.level+"  •  XP "+session.xp+"/"+session.nextLevelXp(),dp(27),dp(65),dp(10),Color.rgb(208,217,211),false);
                 float bx=dp(350), by=dp(22), bw=dp(160);
                 rounded(c,bx,by,bx+bw,by+dp(10),dp(6),Color.argb(150,0,0,0));
@@ -470,7 +470,7 @@ public class ZombieActivity extends Activity {
                 case 10: armor=Math.min(100,armor+20);cash+=10;toast("РАЗГРУЗКА: +20 БРОНИ");break;
             }
             addXp(12);
-            if(p.id>=0 && p.insideBuilding==-1)prefs.edit().putBoolean("street_"+p.id,true).apply();
+            if(p.id>=0)prefs.edit().putBoolean("street_"+p.id,true).apply();
         }
         private void shoot(long now) {
             int g=weapon;
