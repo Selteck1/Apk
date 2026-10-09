@@ -172,11 +172,11 @@ public class MainActivity extends Activity {
             glow(0,36,38,color("#6440BC"),18);
             // coat tails and legs
             paint(color("#16152A"));Path coat=new Path();coat.moveTo(-19,-6);coat.lineTo(-25,28);coat.lineTo(-13,22);coat.lineTo(0,32);coat.lineTo(12,22);coat.lineTo(25,29);coat.lineTo(18,-7);coat.close();c.drawPath(coat,p);
-            paint(color("#292344"));c.drawRoundRect(-17,-12,17,19,7,7,p);
+            paint(armorPower>15?rarityColor(armorRarity):color("#292344"));c.drawRoundRect(-17,-12,17,19,7,7,p);
             paint(color("#0D1020"));c.drawRoundRect(-15,16,-4,38,4,4,p);c.drawRoundRect(5,16,16,38,4,4,p);
             paint(color("#9B7AFF"));c.drawRoundRect(-17,34,-2,40,2,2,p);c.drawRoundRect(3,34,18,40,2,2,p);
             // shoulder armor
-            paint(color("#4D3B79"));Path sh=new Path();sh.moveTo(-17,-10);sh.lineTo(-29,-7);sh.lineTo(-24,4);sh.lineTo(-14,1);sh.close();c.drawPath(sh,p);
+            paint(armorPower>15?rarityColor(armorRarity):color("#4D3B79"));Path sh=new Path();sh.moveTo(-17,-10);sh.lineTo(-29,-7);sh.lineTo(-24,4);sh.lineTo(-14,1);sh.close();c.drawPath(sh,p);
             paint(color("#7555B5"));Path sh2=new Path();sh2.moveTo(17,-10);sh2.lineTo(28,-5);sh2.lineTo(23,5);sh2.lineTo(14,1);sh2.close();c.drawPath(sh2,p);
             // scarf and chest rune
             paint(color("#7C315C"));Path scarf=new Path();scarf.moveTo(-9,-15);scarf.lineTo(10,-14);scarf.lineTo(20,5);scarf.lineTo(6,1);scarf.lineTo(-7,-3);scarf.close();c.drawPath(scarf,p);
@@ -188,8 +188,8 @@ public class MainActivity extends Activity {
             glow(-5,-29,3,color("#74E9FF"),4);glow(5,-29,3,color("#74E9FF"),4);
             // blade
             c.save();float swing=attackPose?(-70+(10-hitTicks)*16f):-23f;c.rotate(swing,17,-4);
-            paint(color("#8A5AFF"));Path blade=new Path();blade.moveTo(19,-5);blade.lineTo(25,-21);blade.lineTo(30,-48);blade.lineTo(34,-24);blade.lineTo(25,0);blade.close();c.drawPath(blade,p);
-            line(20,-3,29,-31,color("#D7C8FF"),2);line(15,-5,26,3,color("#E7C9A0"),3);c.restore();
+            paint(rarityColor(weaponRarity));Path blade=new Path();if(weaponId%3==1){blade.moveTo(17,-4);blade.lineTo(22,-27);blade.lineTo(31,-56);blade.lineTo(36,-27);blade.lineTo(26,2);blade.close();}else if(weaponId%3==2){blade.moveTo(18,-6);blade.lineTo(24,-32);blade.lineTo(28,-58);blade.lineTo(31,-32);blade.lineTo(25,0);blade.close();}else{blade.moveTo(19,-5);blade.lineTo(25,-21);blade.lineTo(30,-48);blade.lineTo(34,-24);blade.lineTo(25,0);blade.close();}c.drawPath(blade,p);
+            line(20,-3,29,-31,rarityColor(weaponRarity),2);line(15,-5,26,3,color("#E7C9A0"),3);c.restore();
             c.restore();
         }
         void battle(){
@@ -198,7 +198,7 @@ public class MainActivity extends Activity {
             p.setShader(new LinearGradient(18,180,370,429,Color.rgb((Color.red(realmAccent())+Color.red(color("#161527")))/2,(Color.green(realmAccent())+Color.green(color("#161527")))/2,(Color.blue(realmAccent())+Color.blue(color("#161527")))/2),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);
             // moon, ruins, mist layers
             glow(310,224,29,color(boss?"#D14B7C":"#A3A0D5"),12);
-            paint(color("#C4C3DF"));c.drawCircle(310,224,23,p);paint(color("#AAA9C8"));c.drawCircle(303,218,4,p);c.drawCircle(319,231,6,p);
+            int orb=region==1?color("#F2A167"):region==2?color("#9FE8FF"):region==3?color("#54DCD0"):region==4?color("#CAB3FF"):region==5?color("#F57EB2"):color("#C4C3DF");paint(orb);c.drawCircle(310,224,23,p);paint(color("#AAA9C8"));c.drawCircle(303,218,4,p);c.drawCircle(319,231,6,p);
             paint(color("#17172D"));Path ruins=new Path();ruins.moveTo(18,354);ruins.lineTo(48,307);ruins.lineTo(61,331);ruins.lineTo(79,281);ruins.lineTo(100,354);ruins.lineTo(126,325);ruins.lineTo(147,354);ruins.lineTo(177,300);ruins.lineTo(204,355);ruins.lineTo(233,329);ruins.lineTo(257,355);ruins.lineTo(289,302);ruins.lineTo(315,355);ruins.lineTo(344,319);ruins.lineTo(372,346);ruins.lineTo(372,429);ruins.lineTo(18,429);ruins.close();c.drawPath(ruins,p);
             paint(color("#22203F"));Path ground=new Path();ground.moveTo(18,373);ground.quadTo(190,346,372,378);ground.lineTo(372,429);ground.lineTo(18,429);ground.close();c.drawPath(ground,p);
             glow(190,388,80,realmAccent(),25);
@@ -333,9 +333,9 @@ public class MainActivity extends Activity {
             boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
             power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
             if(weapon){weaponCollection|=(1<<id);ownedWeaponPower[id]=Math.max(ownedWeaponPower[id],power);ownedWeaponRarity[id]=Math.max(ownedWeaponRarity[id],rarity);prefs.edit().putInt("wp"+id,ownedWeaponPower[id]).putInt("wr"+id,ownedWeaponRarity[id]).apply();
-                if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=rarity;lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
+                if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=ownedWeaponRarity[id];lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
             else{armorCollection|=(1<<id);ownedArmorPower[id]=Math.max(ownedArmorPower[id],power);ownedArmorRarity[id]=Math.max(ownedArmorRarity[id],rarity);prefs.edit().putInt("ap"+id,ownedArmorPower[id]).putInt("ar"+id,ownedArmorRarity[id]).apply();
-                if(armorId==id||power>armorPower){armorId=id;armorPower=power;armorRarity=rarity;lootNotice="EQUIPPED "+armorNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+armorNames()[id];}}
+                if(armorId==id||power>armorPower){armorId=id;armorPower=power;armorRarity=ownedArmorRarity[id];lootNotice="EQUIPPED "+armorNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+armorNames()[id];}}
             lastLoot=rarityName(rarity)+" • +"+power+(weapon?" ATK":" DEF");lootNoticeUntil=System.currentTimeMillis()+5000;flashTicks=8;play(sWin);save();invalidate();
         }
         void cycleGear(boolean weapon){
@@ -462,12 +462,11 @@ public class MainActivity extends Activity {
             heroX=105+rng.nextInt(32);enemyX=268+rng.nextInt(20);jumpUntil=0;nextEnemyAttack=System.currentTimeMillis()+1000;combo=0;save();
         }
         void riftBurst(){
-            if(mana<25){play(sClick);return;}
-            mana-=25;
-            int damage=(int)(actualAttack()*(1.75+strength*0.35));enemyHp-=damage;play(sSkill);flashTicks=5;
+            if(mana<25){combatNotice="NOT ENOUGH MANA";combatNoticeUntil=System.currentTimeMillis()+900;play(sClick);return;}
+            if(Math.abs(enemyX-heroX)>150){combatNotice="RIFT BURST OUT OF RANGE";combatNoticeUntil=System.currentTimeMillis()+900;play(sClick);return;}
+            mana-=25;hitTicks=10;int damage=(int)(actualAttack()*(1.75+strength*0.35));enemyHp-=damage;combatNotice="RIFT BURST  "+damage;combatNoticeUntil=System.currentTimeMillis()+1000;play(sSkill);flashTicks=6;
             hp=Math.min(actualMaxHp(),hp+vitality*4);
-            if(enemyHp<=0)victory();else hp=Math.max(1,hp-Math.max(1,8-actualDefense()));
-            save();
+            if(enemyHp<=0)victory();save();invalidate();
         }
         void usePotion(){if(potions>0&&hp<actualMaxHp()){potions--;hp=Math.min(actualMaxHp(),hp+Math.max(45,actualMaxHp()*45/100));play(sHeal);save();}else play(sClick);}
         void buyUpgrade(int type){
