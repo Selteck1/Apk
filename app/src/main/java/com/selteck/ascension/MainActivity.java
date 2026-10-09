@@ -456,7 +456,7 @@ public class MainActivity extends Activity {
                 if(now<m.stunUntil)continue;
                 m.angle=(float)Math.atan2(dy,dx);
                 if(m.type==2&&!m.big&&d<350&&d>160){
-                    m.x-=dx/(d+0.01f)*speedSafe()*dt;m.y-=dy/(d+0.01f)*m.speedSafe()*dt;
+                    m.x-=dx/(d+0.01f)*speedSafe()*dt;m.y-=dy/(d+0.01f)*speedSafe()*dt;
                     if(now>m.nextAttack){m.nextAttack=now+1750;shootEnemy(m,7+m.zone*2,260,0);play(sHit);}
                 }else if(m.type==5&&!m.big&&d<250&&d>95){
                     float vx=-dy/(d+0.01f),vy=dx/(d+0.01f);m.x+=vx*75*dt;m.y+=vy*75*dt;if(now>m.nextAttack){m.nextAttack=now+1450;shootEnemy(m,8+m.zone*2,300,0);}
