@@ -4,526 +4,594 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.graphics.*;
-import android.media.AudioAttributes;
-import android.media.SoundPool;
-import android.media.MediaPlayer;
 import android.graphics.drawable.Drawable;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.media.SoundPool;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Random;
 
 public class MainActivity extends Activity {
     private GameView game;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(Color.rgb(7, 8, 18));
-        getWindow().setNavigationBarColor(Color.rgb(7, 8, 18));
-        game = new GameView();
+        getWindow().setStatusBarColor(Color.rgb(7,8,15));
+        getWindow().setNavigationBarColor(Color.rgb(7,8,15));
+        getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512 | 4096);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        game=new GameView();
         setContentView(game);
     }
-    @Override protected void onPause() { super.onPause(); if (game != null) game.pauseAudio(); }
-    @Override protected void onResume() { super.onResume(); if (game != null) game.resumeAudio(); }
-    @Override protected void onDestroy() { if (game != null) game.releaseAudio(); super.onDestroy(); }
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if(hasFocus)getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512 | 4096);
+    }
+    @Override protected void onPause(){super.onPause();if(game!=null){game.save();game.pauseAudio();}}
+    @Override protected void onResume(){super.onResume();if(game!=null)game.resumeAudio();}
+    @Override protected void onDestroy(){if(game!=null)game.releaseAudio();super.onDestroy();}
 
     final class GameView extends View {
-        Canvas c; Paint p = new Paint(Paint.ANTI_ALIAS_FLAG); float sx, sy;
-        SharedPreferences prefs; Random rng = new Random();
-        int tab=0, level, xp, gold, hp, maxHp, attack, defense, kills, skillPoints, mana, maxMana, dailyClaimed;
-        int strength, vitality, focus, crit, potions, shards, bossKills, questClaimed, eventClaimed;
-        int weaponTier, armorTier, relicTier, combo, eventProgress, lastHit;
-        int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins, weaponCollection=1, armorCollection=1;
-        int[] ownedWeaponPower=new int[8], ownedWeaponRarity=new int[8], ownedArmorPower=new int[8], ownedArmorRarity=new int[8];
-        int[] regionKills=new int[6], regionBosses=new int[6];
-        Bitmap[] realmArt=new Bitmap[6], mobArt=new Bitmap[7], bossArt=new Bitmap[6], weaponArt=new Bitmap[8], armorArt=new Bitmap[8], caseArt=new Bitmap[3];
-        Bitmap heroIdleArt, heroAttackArt, heroJumpArt;
-        float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
-        String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
-        int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
-        String combatNotice=""; long combatNoticeUntil=0, enemyAnimUntil=0;
-        boolean boss, eventActive, audioOn=true, showBag=false, skillBurst=false, campaignComplete;
-        String enemyName="RIFT WRAITH";
-        long eventSeed;
-        SoundPool sounds; MediaPlayer ambience; int sHit, sCrit, sBoss, sLevel, sBuy, sHeal, sWin, sClick, sSkill;
-        long lastAttackAt=0;
-        GameView() {
-            super(MainActivity.this);
-            prefs=getSharedPreferences("ascension_save_v2",MODE_PRIVATE);
-            level=prefs.getInt("level",1); xp=prefs.getInt("xp",0); gold=prefs.getInt("gold",180);
-            maxHp=prefs.getInt("maxHp",140); hp=prefs.getInt("hp",maxHp); maxMana=prefs.getInt("maxMana",100); mana=prefs.getInt("mana",maxMana); dailyClaimed=prefs.getInt("dailyClaimed",0); attack=prefs.getInt("attack",20);
-            defense=prefs.getInt("defense",6); kills=prefs.getInt("kills",0); skillPoints=prefs.getInt("skillPoints",0);
-            strength=prefs.getInt("strength",0); vitality=prefs.getInt("vitality",0); focus=prefs.getInt("focus",0);
-            crit=prefs.getInt("crit",5); potions=prefs.getInt("potions",2); shards=prefs.getInt("shards",0);
-            bossKills=prefs.getInt("bossKills",0); questClaimed=prefs.getInt("questClaimed",0);
-            eventClaimed=prefs.getInt("eventClaimed",0); weaponTier=prefs.getInt("weaponTier",1);
-            armorTier=prefs.getInt("armorTier",0); relicTier=prefs.getInt("relicTier",0);
-            region=prefs.getInt("region",0); eventProgress=prefs.getInt("eventProgress",0);
-            weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0); weaponCollection=prefs.getInt("weaponCollection",1); armorCollection=prefs.getInt("armorCollection",1);
-            for(int i=0;i<8;i++){ownedWeaponPower[i]=prefs.getInt("wp"+i,0);ownedWeaponRarity[i]=prefs.getInt("wr"+i,0);ownedArmorPower[i]=prefs.getInt("ap"+i,0);ownedArmorRarity[i]=prefs.getInt("ar"+i,0);}
-            for(int i=0;i<6;i++){regionKills[i]=prefs.getInt("rk"+i,i==0?Math.max(0,kills-bossKills):0);regionBosses[i]=prefs.getInt("rb"+i,i==0?bossKills:0);}
-            enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);campaignComplete=prefs.getBoolean("campaignComplete",false);
-            enemyMax=prefs.getInt("enemyMax",90+level*9); enemyHp=prefs.getInt("enemyHp",enemyMax);
-            if(hp<1) hp=maxHp;
-            if(enemyHp<1) enemyHp=enemyMax;
-            enemyName=boss?"THE HOLLOW KING":enemyLabel(enemyType);
-            eventSeed=prefs.getLong("eventSeed",System.currentTimeMillis()/86400000L);
-            long today=System.currentTimeMillis()/86400000L; if(eventSeed!=today){eventSeed=today;eventProgress=0;eventClaimed=0;dailyClaimed=0;}
-            mana=Math.max(0,Math.min(maxMana,mana));
-            setLayerType(View.LAYER_TYPE_SOFTWARE,null);
-            initSounds(); initAmbient(); loadArt();
-            setContentDescription("PROJECT ASCENSION dark fantasy role-playing game");
-            postInvalidateDelayed(40);
-        }
-        Bitmap vectorBitmap(int id,int w,int h){try{Drawable d=getResources().getDrawable(id);d=d.mutate();Bitmap b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);Canvas cc=new Canvas(b);d.setBounds(0,0,w,h);d.draw(cc);return b;}catch(Exception ex){return null;}}
-        Bitmap crop(Bitmap b,int x,int y,int w,int h){try{return b==null?null:Bitmap.createBitmap(b,x,y,w,h);}catch(Exception ex){return null;}}
-        void loadArt(){
-            Bitmap ws=vectorBitmap(R.drawable.art_worlds,390,1500);for(int i=0;i<6;i++)realmArt[i]=crop(ws,0,i*250,390,250);
-            Bitmap hs=vectorBitmap(R.drawable.art_heroes,96,384);heroIdleArt=crop(hs,0,0,96,128);heroAttackArt=crop(hs,0,128,96,128);heroJumpArt=crop(hs,0,256,96,128);
-            Bitmap es=vectorBitmap(R.drawable.art_enemies,384,512);for(int i=0;i<7;i++)mobArt[i]=crop(es,(i%4)*96,(i/4)*128,96,128);for(int i=0;i<6;i++){int ix=7+i;bossArt[i]=crop(es,(ix%4)*96,(ix/4)*128,96,128);}
-            Bitmap its=vectorBitmap(R.drawable.art_items,400,384);for(int i=0;i<8;i++){weaponArt[i]=crop(its,(i%5)*80,(i/5)*96,80,96);int j=8+i;armorArt[i]=crop(its,(j%5)*80,(j/5)*96,80,96);}for(int i=0;i<3;i++){int j=16+i;caseArt[i]=crop(its,(j%5)*80,(j/5)*96,80,96);}
-        }
-        void drawSprite(Bitmap b,float l,float t,float w,float h){if(b==null)return;paint(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(b,null,new RectF(l,t,l+w,t+h),p);}
-        void initSounds() {
-            try {
-                AudioAttributes aa=new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
-                sounds=new SoundPool.Builder().setMaxStreams(6).setAudioAttributes(aa).build();
-                sHit=loadTone("hit",105,0.12,0.25); sCrit=loadTone("crit",190,0.18,0.35);
-                sBoss=loadTone("boss",62,0.42,0.6); sLevel=loadTone("level",440,0.34,0.4);
-                sBuy=loadTone("buy",620,0.10,0.22); sHeal=loadTone("heal",520,0.22,0.25);
-                sWin=loadTone("win",330,0.45,0.45); sClick=loadTone("click",260,0.055,0.12);
-                sSkill=loadTone("skill",780,0.2,0.3);
-            } catch(Exception ignored) { sounds=null; }
-        }
-        int loadTone(String name,double freq,double seconds,double volume) throws Exception {
-            int rate=22050, n=(int)(rate*seconds);
-            ByteBuffer b=ByteBuffer.allocate(44+n*2).order(ByteOrder.LITTLE_ENDIAN);
-            b.put(new byte[]{'R','I','F','F'}); b.putInt(36+n*2); b.put(new byte[]{'W','A','V','E','f','m','t',' '});
-            b.putInt(16); b.putShort((short)1); b.putShort((short)1); b.putInt(rate); b.putInt(rate*2); b.putShort((short)2); b.putShort((short)16);
-            b.put(new byte[]{'d','a','t','a'}); b.putInt(n*2);
-            for(int i=0;i<n;i++) {
-                double t=i/(double)rate, env=Math.min(1,t*45)*Math.pow(Math.max(0,1-t/seconds),1.8);
-                double wobble=1+0.035*Math.sin(t*27);
-                double wave=Math.sin(2*Math.PI*freq*wobble*t);
-                if(name.equals("hit")||name.equals("crit")) wave=wave*0.55+(rng.nextDouble()*2-1)*0.45;
-                if(name.equals("boss")) wave=Math.sin(2*Math.PI*freq*t)+0.3*Math.sin(2*Math.PI*freq*0.5*t);
-                short v=(short)(Math.max(-1,Math.min(1,wave*env*volume))*32767);
-                b.putShort(v);
-            }
-            File f=new File(getCacheDir(),"asc_"+name+".wav");
-            FileOutputStream out=new FileOutputStream(f); out.write(b.array()); out.close();
-            return sounds.load(f.getAbsolutePath(),1);
-        }
-        void initAmbient(){try{int rate=22050;double seconds=8.0;int n=(int)(rate*seconds);ByteBuffer b=ByteBuffer.allocate(44+n*2).order(ByteOrder.LITTLE_ENDIAN);b.put(new byte[]{'R','I','F','F'});b.putInt(36+n*2);b.put(new byte[]{'W','A','V','E','f','m','t',' '});b.putInt(16);b.putShort((short)1);b.putShort((short)1);b.putInt(rate);b.putInt(rate*2);b.putShort((short)2);b.putShort((short)16);b.put(new byte[]{'d','a','t','a'});b.putInt(n*2);for(int i=0;i<n;i++){double t=i/(double)rate;double env=Math.pow(Math.max(0,Math.sin(Math.PI*t/seconds)),0.45);double wave=Math.sin(2*Math.PI*55*t)*0.24+Math.sin(2*Math.PI*82.5*t)*0.20+Math.sin(2*Math.PI*110*t+Math.sin(t*0.5))*0.12+Math.sin(2*Math.PI*165*t)*0.075;wave+=Math.sin(2*Math.PI*41.2*t)*0.08*Math.sin(t*0.8);short v=(short)(Math.max(-1,Math.min(1,wave*env*0.32))*32767);b.putShort(v);}File f=new File(getCacheDir(),"asc_ambience.wav");FileOutputStream out=new FileOutputStream(f);out.write(b.array());out.close();ambience=new MediaPlayer();ambience.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());ambience.setDataSource(f.getAbsolutePath());ambience.prepare();ambience.setLooping(true);ambience.setVolume(0.22f,0.22f);if(audioOn)ambience.start();}catch(Exception ignored){if(ambience!=null){try{ambience.release();}catch(Exception ignored2){}ambience=null;}}}
-        void play(int id) { if(audioOn&&sounds!=null&&id!=0) try { sounds.play(id,1,1,1,0,0.9f+rng.nextFloat()*0.22f); } catch(Exception ignored){} }
-        void toggleAudio(){audioOn=!audioOn;if(ambience!=null){try{if(audioOn){if(!ambience.isPlaying())ambience.start();}else if(ambience.isPlaying())ambience.pause();}catch(Exception ignored){}}if(audioOn)play(sClick);}
-        void pauseAudio(){if(sounds!=null)sounds.autoPause();if(ambience!=null)try{if(ambience.isPlaying())ambience.pause();}catch(Exception ignored){}}
-        void resumeAudio(){if(sounds!=null)sounds.autoResume();if(audioOn&&ambience!=null)try{if(!ambience.isPlaying())ambience.start();}catch(Exception ignored){}}
-        void releaseAudio(){if(sounds!=null){sounds.release();sounds=null;}if(ambience!=null){try{ambience.stop();}catch(Exception ignored){}ambience.release();ambience=null;}}
-        int color(String h){return Color.parseColor(h);}
-        void paint(int co){p.reset();p.setAntiAlias(true);p.setColor(co);}
-        void rect(float l,float t,float r,float b,int co,float rad){paint(co);c.drawRoundRect(l,t,r,b,rad,rad,p);}
-        void outline(float l,float t,float r,float b,int co,float rad,float sw){paint(co);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sw);c.drawRoundRect(l,t,r,b,rad,rad,p);p.setStyle(Paint.Style.FILL);}
-        void gradient(float l,float t,float r,float b,int a,int z,float rad){paint(Color.WHITE);p.setShader(new LinearGradient(l,t,r,b,a,z,Shader.TileMode.CLAMP));c.drawRoundRect(l,t,r,b,rad,rad,p);p.setShader(null);}
-        void line(float x,float y,float x2,float y2,int co,float sw){paint(co);p.setStrokeWidth(sw);p.setStrokeCap(Paint.Cap.ROUND);c.drawLine(x,y,x2,y2,p);}
-        void txt(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));c.drawText(s,x,y,p);}
-        void center(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));c.drawText(s,x-p.measureText(s)/2,y,p);}
-        void bar(float x,float y,float w,float h,float v,int bg,int fg){rect(x,y,x+w,y+h,bg,h/2);if(v>0)rect(x,y,x+Math.max(h,Math.min(1,v)*w),y+h,fg,h/2);}
-        void glow(float x,float y,float radius,int co,float blur){paint(co);p.setMaskFilter(new BlurMaskFilter(blur,BlurMaskFilter.Blur.NORMAL));c.drawCircle(x,y,radius,p);p.setMaskFilter(null);}
-        void save(){prefs.edit().putInt("level",level).putInt("xp",xp).putInt("gold",gold).putInt("hp",hp).putInt("maxHp",maxHp).putInt("mana",mana).putInt("maxMana",maxMana).putInt("dailyClaimed",dailyClaimed)
-            .putInt("attack",attack).putInt("defense",defense).putInt("kills",kills).putInt("skillPoints",skillPoints)
-            .putInt("strength",strength).putInt("vitality",vitality).putInt("focus",focus).putInt("crit",crit).putInt("potions",potions)
-            .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
-            .putInt("weaponTier",weaponTier).putInt("armorTier",armorTier).putInt("relicTier",relicTier).putInt("region",region)
-            .putInt("eventProgress",eventProgress).putInt("weaponCollection",weaponCollection).putInt("armorCollection",armorCollection).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp).putBoolean("campaignComplete",campaignComplete)
-            .putLong("eventSeed",eventSeed).apply();SharedPreferences.Editor e=prefs.edit();for(int i=0;i<6;i++)e.putInt("rk"+i,regionKills[i]).putInt("rb"+i,regionBosses[i]);e.apply();}
-        int xpNeed(){return 190+level*78+level*level*3;}
-        int campaignSlays(){int total=0;for(int n:regionKills)total+=n;return total;}
-        int campaignGuardians(){int total=0;for(int n:regionBosses)total+=n;return total;}
-        int waveProgress(int r){int n=regionKills[r];if(n>0&&n%60==0&&regionBosses[r]<n/60)return 60;return n%60;}
-        int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2+weaponPower;}
-        int actualDefense(){return defense+armorTier*3+vitality*2+relicTier+armorPower;}
-        int actualMaxHp(){return maxHp+armorTier*15+vitality*18+armorPower*3;}
-        int upgradeCost(){return 55+weaponTier*62+level*12;}
-        int levelCost(){return 2+level/3;}
-        String enemyLabel(int i){String[][] a={{"RIFT WRAITH","VEIL STALKER","GRAVE MITE","DUSK REVENANT","ABYSS KNIGHT","RIFT BANSHEE","VOID HOUND"},{"ASHEN STALKER","CINDER WOLF","EMBER GOLEM","SCORCH WRAITH","ASHEN BRUTE","PYRE WITCH","CHAR HOUND"},{"FROST HOUND","GLACIER WRAITH","ICEBOUND KNIGHT","SNOW WIDOW","FROST BRUTE","CRYSTAL STALKER","RIME GHOUL"},{"DROWNED GUARD","TIDE WRAITH","SUNKEN KNIGHT","DEEP MAW","CORAL WITCH","ABYSSAL EEL","SALT GOLEM"},{"STAR HUNTER","ASTRAL WOLF","COMET WRAITH","FALLEN ORACLE","STARFORGED KNIGHT","NOVA WITCH","COSMIC MAW"},{"HOLLOW KNIGHT","VOID LEECH","NULL STALKER","REALM EATER","CROWN WRAITH","OBLIVION BRUTE","THE UNMAKER"}};return a[Math.floorMod(region,a.length)][Math.floorMod(i, a[Math.floorMod(region,a.length)].length)];}
-        @Override protected void onDraw(Canvas canvas){
-            super.onDraw(canvas);c=canvas;sx=getWidth()/390f;sy=getHeight()/844f;c.save();c.scale(sx,sy);
-            paint(color("#080914"));c.drawRect(0,0,390,844,p);
-            int[] sky={color("#19152F"),color("#321D22"),color("#122B43"),color("#112F3A"),color("#281C47"),color("#32152F")}; int[] glowPal={color("#40316E"),color("#9E4A28"),color("#418CB5"),color("#2AABAC"),color("#8B65D5"),color("#D2387C")};
-            p.setShader(new LinearGradient(0,0,340,844,sky[Math.floorMod(region,sky.length)],color("#080914"),Shader.TileMode.CLAMP));c.drawRect(0,0,390,844,p);p.setShader(null);
-            glow(315,230,65,glowPal[Math.floorMod(region,glowPal.length)],55);glow(40,470,55,glowPal[Math.floorMod(region,glowPal.length)],42);
-            long anim=System.currentTimeMillis();for(int i=0;i<52;i++){float xx=(i*73+17)%390, yy=(i*131+19+(float)((anim/70+i*13)%710))%710;paint(Color.argb(80+(i%5)*28,173,176,255));c.drawCircle(xx,yy,0.5f+(i%3)*0.4f,p);}
-            int ambience=realmAccent();for(int i=0;i<17;i++){float xx=(i*47+17+(float)Math.sin(anim/480.0+i)*11)%390;float yy=(i*61+(float)(anim/(region==2?85:region==3?-110:105))%710)%710;if(region==3)yy=710-yy;paint(Color.argb(95+(i%4)*30,Color.red(ambience),Color.green(ambience),Color.blue(ambience)));c.drawCircle(xx,yy,1+(i%3)*0.6f,p);}
-            header();
-            tickCombat(); if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)cases();else if(tab==4)quests();else world();
-            nav(); if(flashTicks>0){rect(0,0,390,735,Color.argb(Math.min(90,flashTicks*12),210,85,140),0);flashTicks--;}
-            if(hitTicks>0)hitTicks--; c.restore();postInvalidateDelayed(33);
-        }
-        void header(){
-            txt("P R O J E C T   /   A S C E N S I O N",18,28,9,color("#AAA1D2"),true);
-            txt("✦ "+gold,298,29,12,color("#F5D58C"),true);
-            txt("◈ "+shards,353,29,10,color("#9DEBFF"),true);
-            txt("THE SHATTERED REALM",18,57,20,Color.WHITE,true);
-            txt("EXPEDITION "+(region+1)+"  /  "+regionName(),18,75,9,color("#8985B5"),true);
-            txt(audioOn?"♪":"♪̸",350,58,18,audioOn?color("#9EEBFF"):color("#77718A"),true);
-            rect(18,88,372,145,color("#17172E"),13);
-            gradient(18,88,23,145,color("#E8C879"),color("#8B57ED"),2);
-            heroPortrait(48,116,0.55f);
-            txt("VOIDWALKER",72,108,11,color("#F2EEFF"),true);
-            txt("LEVEL "+level+"  •  "+(level<5?"WAYFARER":level<12?"RIFT HUNTER":"ABYSS SLAYER"),72,123,8,color("#A8A3CD"),true);
-            bar(72,130,202,5,xp/(float)xpNeed(),color("#33304D"),color("#B18AFF"));
-            txt(xp+"/"+xpNeed()+" XP",280,137,8,color("#CBB5FF"),true);
-            txt("HP "+hp+"/"+actualMaxHp(),72,140,8,color("#F3A9C4"),true);
-        }
-        void heroPortrait(float x,float y,float scale){
-            c.save();c.translate(x,y);c.scale(scale,scale);
-            glow(0,0,23,color("#3A2868"),14);
-            paint(color("#25223F"));c.drawCircle(0,0,22,p);
-            paint(color("#C8A5FF"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.5f);c.drawCircle(0,0,21,p);p.setStyle(Paint.Style.FILL);
-            if(heroIdleArt!=null){c.save();Path clip=new Path();clip.addCircle(0,0,20,Path.Direction.CW);c.clipPath(clip);drawSprite(heroIdleArt,-20,-27,40,54);c.restore();}
-            else drawHero(0,4,0.48f,false);
-            c.restore();
-        }
-        int realmAccent(){int[] a={color("#9E72EF"),color("#E48743"),color("#6ECDF3"),color("#42D8CB"),color("#B49AFF"),color("#F05BA6")};return a[Math.floorMod(region,a.length)];}
-        void tickCombat(){if(tab!=0)return;long now=System.currentTimeMillis();if(Math.abs(enemyX-heroX)>86)enemyX+=heroX>enemyX?0.62f:-0.62f;enemyX=Math.max(55,Math.min(342,enemyX));if(now>=nextEnemyAttack&&Math.abs(enemyX-heroX)<96){nextEnemyAttack=now+(boss?1280:1650);if(now<jumpUntil||now<invulnerableUntil){combatNotice="DODGED";combatNoticeUntil=now+550;play(sClick);}else{enemyAnimUntil=now+360;int hurt=Math.max(5,(boss?22+region*6:12+region*5+level/4)-actualDefense()/2);hp-=hurt;invulnerableUntil=now+720;flashTicks=4;combatNotice=(boss?"BOSS SMASH":"ENEMY STRIKE")+"  -"+hurt;combatNoticeUntil=now+850;play(sHit);if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-25);heroX=Math.max(60,heroX-38);combo=0;combatNotice="YOU FELL • LOST 25 GOLD";combatNoticeUntil=now+1500;invulnerableUntil=now+1900;}save();}}}
-        void drawHero(float x,float y,float s,boolean attackPose){
-            c.save();c.translate(x,y);c.scale(s,s);
-            glow(0,36,38,color("#6440BC"),18);
-            // coat tails and legs
-            paint(color("#16152A"));Path coat=new Path();float flap=(float)Math.sin(System.currentTimeMillis()/105.0)*2.2f;coat.moveTo(-19,-6);coat.lineTo(-25,28+flap);coat.lineTo(-13,22-flap);coat.lineTo(0,32);coat.lineTo(12,22+flap);coat.lineTo(25,29-flap);coat.lineTo(18,-7);coat.close();c.drawPath(coat,p);
-            paint(armorPower>15?rarityColor(armorRarity):color("#292344"));c.drawRoundRect(-17,-12,17,19,7,7,p);
-            paint(color("#0D1020"));c.drawRoundRect(-15,16,-4,38,4,4,p);c.drawRoundRect(5,16,16,38,4,4,p);
-            paint(color("#9B7AFF"));c.drawRoundRect(-17,34,-2,40,2,2,p);c.drawRoundRect(3,34,18,40,2,2,p);
-            // shoulder armor
-            paint(armorPower>15?rarityColor(armorRarity):color("#4D3B79"));Path sh=new Path();sh.moveTo(-17,-10);sh.lineTo(-29,-7);sh.lineTo(-24,4);sh.lineTo(-14,1);sh.close();c.drawPath(sh,p);
-            paint(color("#7555B5"));Path sh2=new Path();sh2.moveTo(17,-10);sh2.lineTo(28,-5);sh2.lineTo(23,5);sh2.lineTo(14,1);sh2.close();c.drawPath(sh2,p);
-            // scarf and chest rune
-            paint(color("#7C315C"));Path scarf=new Path();scarf.moveTo(-9,-15);scarf.lineTo(10,-14);scarf.lineTo(20,5);scarf.lineTo(6,1);scarf.lineTo(-7,-3);scarf.close();c.drawPath(scarf,p);
-            paint(color("#D4B6FF"));Path rune=new Path();rune.moveTo(0,-8);rune.lineTo(5,-1);rune.lineTo(0,7);rune.lineTo(-5,-1);rune.close();c.drawPath(rune,p);
-            // hood and face
-            paint(color("#090D1B"));Path hood=new Path();hood.moveTo(-19,-24);hood.lineTo(-15,-42);hood.lineTo(0,-51);hood.lineTo(15,-41);hood.lineTo(19,-22);hood.lineTo(11,-13);hood.lineTo(-11,-13);hood.close();c.drawPath(hood,p);
-            paint(color("#BCA4E8"));Path face=new Path();face.moveTo(-10,-31);face.lineTo(-7,-40);face.lineTo(0,-43);face.lineTo(8,-38);face.lineTo(10,-28);face.lineTo(0,-21);face.close();c.drawPath(face,p);
-            paint(color("#171329"));c.drawOval(-10,-33,10,-21,p);
-            glow(-5,-29,3,color("#74E9FF"),4);glow(5,-29,3,color("#74E9FF"),4);
-            // blade
-            c.save();float swing=attackPose?(-70+(10-hitTicks)*16f):-23f;c.rotate(swing,17,-4);
-            paint(rarityColor(weaponRarity));Path blade=new Path();if(weaponId%3==1){blade.moveTo(17,-4);blade.lineTo(22,-27);blade.lineTo(31,-56);blade.lineTo(36,-27);blade.lineTo(26,2);blade.close();}else if(weaponId%3==2){blade.moveTo(18,-6);blade.lineTo(24,-32);blade.lineTo(28,-58);blade.lineTo(31,-32);blade.lineTo(25,0);blade.close();}else{blade.moveTo(19,-5);blade.lineTo(25,-21);blade.lineTo(30,-48);blade.lineTo(34,-24);blade.lineTo(25,0);blade.close();}c.drawPath(blade,p);
-            line(20,-3,29,-31,rarityColor(weaponRarity),2);line(15,-5,26,3,color("#E7C9A0"),3);c.restore();
-            c.restore();
-        }
-        void battle(){
-            txt(campaignComplete?"ASCENSION COMPLETE • ENDGAME":"ACTIVE EXPEDITION",18,168,9,campaignComplete?color("#EBD18A"):color("#8F8AB7"),true);
-            rect(18,179,372,429,color("#101225"),16);
-            c.save();Path arenaClip=new Path();arenaClip.addRoundRect(18,179,372,429,16,16,Path.Direction.CW);c.clipPath(arenaClip);
-            if(realmArt[Math.floorMod(region,realmArt.length)]!=null){drawSprite(realmArt[Math.floorMod(region,realmArt.length)],18,179,354,250);paint(Color.argb(38,7,7,22));c.drawRect(18,179,372,429,p);}
-            else{p.setShader(new LinearGradient(18,180,370,429,Color.rgb((Color.red(realmAccent())+Color.red(color("#161527")))/2,(Color.green(realmAccent())+Color.green(color("#161527")))/2,(Color.blue(realmAccent())+Color.blue(color("#161527")))/2),color("#111322"),Shader.TileMode.CLAMP));c.drawRoundRect(18,179,372,429,16,16,p);p.setShader(null);}
-            paint(Color.argb(185,5,7,16));Path ground=new Path();ground.moveTo(18,374);ground.quadTo(190,347,372,378);ground.lineTo(372,429);ground.lineTo(18,429);ground.close();c.drawPath(ground,p);
-            glow(190,390,82,realmAccent(),22);paint(Color.rgb(Color.red(realmAccent())/3,Color.green(realmAccent())/3,Color.blue(realmAccent())/3));c.drawOval(65,380,322,408,p);
-            c.restore();
-            // enemy detailed, each archetype different silhouette
-            long nowArt=System.currentTimeMillis();float enemyBob=(float)Math.sin(nowArt/(boss?260.0:230.0))*3.0f;
-            float lunge=nowArt<enemyAnimUntil?(heroX>enemyX?17f:-17f):0f;float renderEnemyX=enemyX+lunge;
-            if(boss){if(bossArt[Math.floorMod(region,bossArt.length)]!=null)drawSprite(bossArt[Math.floorMod(region,bossArt.length)],renderEnemyX-48,281+enemyBob,96,132);else drawBoss(renderEnemyX,345+enemyBob,1.15f);}
-            else{if(mobArt[Math.floorMod(enemyType,mobArt.length)]!=null)drawSprite(mobArt[Math.floorMod(enemyType,mobArt.length)],renderEnemyX-40,294+enemyBob,80,116);else drawEnemy(renderEnemyX,350+enemyBob,enemyType%7,1.0f);}
-            boolean airborne=nowArt<jumpUntil;long jumpStart=jumpUntil-680;float jumpPhase=airborne?Math.max(0,Math.min(1,(nowArt-jumpStart)/680f)):0;float jumpLift=airborne?(float)Math.sin(Math.PI*jumpPhase)*43f:0;
-            Bitmap heroFrame=airborne?heroJumpArt:(hitTicks>0?heroAttackArt:heroIdleArt);
-            if(heroFrame!=null){float heroTop=306-jumpLift;drawSprite(heroFrame,heroX-33,heroTop,66,104);line(heroX+13,353-jumpLift,heroX+27,326-jumpLift,rarityColor(weaponRarity),2.5f);}
-            else drawHero(heroX,358-jumpLift,0.83f,hitTicks>0);
-            if(hitTicks>0){ paint(Color.argb(235,220,242,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);c.drawArc(heroX+8,317,heroX+93,396,-72+(10-hitTicks)*17,105,false,p);p.setStyle(Paint.Style.FILL); for(int k=0;k<7;k++){float a=(System.currentTimeMillis()/19+k*51)%360;float rr=16+(k*7);paint(Color.argb(150,198,145,255));c.drawCircle(heroX+43+(float)Math.cos(Math.toRadians(a))*rr,355+(float)Math.sin(Math.toRadians(a))*rr,1.5f+(k%3),p);} }
-            // enemy nameplate
-            rect(29,191,209,266,color("#10101F"),10);
-            txt(boss?"☠  RAID BOSS":"✦  "+enemyName,39,208,boss?9:10,boss?color("#FF8DAE"):Color.WHITE,true);
-            txt(boss?"ANCIENT • PHASE "+(enemyHp<enemyMax/2?2:1):"ELITE • THREAT "+(1+region),39,223,8,color("#D9A3FF"),true);
-            bar(39,231,155,7,enemyHp/(float)Math.max(1,enemyMax),color("#44233B"),boss?color("#FF547E"):color("#E56B9D"));
-            txt(enemyHp+" / "+enemyMax+" HP",39,252,8,color("#E8B8D0"),true);
-            if(boss){rect(230,190,359,222,color("#391B35"),9);center("BOSS",294,205,10,color("#FF9CB8"),true);center("Guaranteed relic drop",294,217,7,color("#E9B5CB"),false);}
-            // combat info panel
-            rect(18,440,372,495,color("#17172D"),12);
-            txt("VITALS",30,457,8,color("#9995BE"),true);
-            txt("HP",30,475,9,color("#F5B3C8"),true);bar(55,466,174,9,hp/(float)Math.max(1,actualMaxHp()),color("#442338"),color("#F05D8C"));
-            txt(""+hp,235,475,9,Color.WHITE,true);
-            txt("⚔ "+actualAttack(),278,475,11,color("#F2D58D"),true);
-            txt("CRIT "+crit+"%",30,488,8,color("#B9A4FF"),true);
-            txt("COMBO x"+Math.max(1,combo),280,488,8,color("#A7EDFF"),true);
-            // action controls
-            rect(18,507,88,568,color("#292441"),11);center("◀",53,539,19,color("#CBB2FF"),true);center("STEP",53,554,7,color("#A5A0C5"),true);
-            rect(94,507,157,568,color("#292441"),11);center("JUMP",125,535,10,color("#9DEBFF"),true);center("DODGE",125,551,7,color("#A5A0C5"),true);
-            gradient(163,507,275,568,color("#A46BFF"),color("#5633B3"),11);center("⚔ ATTACK",219,536,12,Color.WHITE,true);center("combo strike",219,552,7,color("#E8D9FF"),false);
-            rect(281,507,372,568,color("#292441"),11);center("▶",326,539,19,color("#CBB2FF"),true);center("STEP",326,554,7,color("#A5A0C5"),true);
-            rect(18,580,130,633,color("#24213E"),10);txt("✦ SKILL",29,598,10,color("#D4B8FF"),true);txt("RIFT BURST",29,613,8,color("#9B94C2"),false);txt("MP "+mana+"/"+maxMana,29,625,7,color("#9B94C2"),false);
-            rect(141,580,251,633,color("#24213E"),10);txt("✚ POTION",152,598,10,color("#FFB4CE"),true);txt("Heal 45%",152,613,8,color("#9B94C2"),false);txt("Have: "+potions,152,625,7,color("#9B94C2"),false);
-            rect(262,580,372,633,color("#24213E"),10);txt("◈ CASES",273,598,10,color("#A6EDFF"),true);txt("Open loot",273,613,8,color("#9B94C2"),false);txt(casesOpened+" opened",273,625,7,color("#9B94C2"),false);
-            rect(18,646,372,715,color("#111324"),10);
-            if(System.currentTimeMillis()<combatNoticeUntil)center(combatNotice,195,420,10,color("#F7D7FF"),true);
-            txt("HUNT CONTRACT",30,663,8,color("#A79BCE"),true);
-            txt("Defeat "+(questClaimed+5)+" enemies",30,681,11,Color.WHITE,true);
-            bar(30,690,204,5,Math.min(1,(kills-questClaimed)/5f),color("#34314E"),color("#B18AFF"));
-            rect(263,659,358,700,kills-questClaimed>=5?color("#59418A"):color("#25243B"),8);
-            center(kills-questClaimed>=5?"CLAIM":"IN PROGRESS",310,676,8,kills-questClaimed>=5?Color.WHITE:color("#8583A7"),true);
-            center(kills-questClaimed>=5?"+90 G  +1 SHARD":"REWARD",310,689,7,color("#E9D49B"),true);
-            txt("HUNT "+waveProgress(region)+"/60  •  GUARDIAN "+regionBosses[region]+"/3  •  SAVE AUTO",30,707,7,color("#727392"),false);
-        }
-        void drawEnemy(float x,float y,int type,float scale){
-            c.save();c.translate(x,y);c.scale(scale,scale);
-            int main=type==1?color("#6A332F"):type==2?color("#37637D"):type==3?color("#4A285E"):type==4?color("#35334B"):color("#25213F");
-            glow(0,14,40,type==2?color("#43C9FF"):realmAccent(),16);
-            // feet/tendrils
-            paint(color("#111222"));Path legs=new Path();
-            if(type==2){legs.moveTo(-20,7);legs.lineTo(-32,26);legs.lineTo(-14,22);legs.lineTo(-5,8);legs.lineTo(8,8);legs.lineTo(17,25);legs.lineTo(30,28);legs.lineTo(18,3);}
-            else {legs.moveTo(-23,0);legs.lineTo(-35,24);legs.lineTo(-20,19);legs.lineTo(-8,9);legs.lineTo(8,9);legs.lineTo(20,21);legs.lineTo(32,25);legs.lineTo(20,-1);}
-            legs.close();c.drawPath(legs,p);
-            paint(main);Path body=new Path();
-            if(type==1){body.moveTo(-23,0);body.lineTo(-30,-25);body.lineTo(-12,-19);body.lineTo(-5,-39);body.lineTo(7,-23);body.lineTo(26,-29);body.lineTo(23,-6);body.lineTo(13,12);body.lineTo(-15,12);}
-            else if(type==2){body.moveTo(-28,-2);body.lineTo(-34,-27);body.lineTo(-16,-17);body.lineTo(-5,-34);body.lineTo(9,-19);body.lineTo(30,-26);body.lineTo(24,1);body.lineTo(12,14);body.lineTo(-18,12);}
-            else {body.moveTo(-24,3);body.lineTo(-22,-22);body.lineTo(-14,-39);body.lineTo(-3,-25);body.lineTo(5,-43);body.lineTo(16,-25);body.lineTo(28,-22);body.lineTo(24,0);body.lineTo(12,15);body.lineTo(-16,14);}
-            body.close();c.drawPath(body,p);
-            paint(type==2?color("#72B9D9"):type==1?color("#9A5148"):color("#4D356F"));c.drawOval(-18,-23,18,10,p);
-            // horned skull / face
-            paint(color("#171426"));Path head=new Path();head.moveTo(-18,-23);head.lineTo(-21,-42);head.lineTo(-10,-36);head.lineTo(0,-47);head.lineTo(10,-36);head.lineTo(21,-42);head.lineTo(17,-20);head.lineTo(0,-12);head.close();c.drawPath(head,p);
-            if(type==5){paint(color("#A996D3"));Path veil=new Path();veil.moveTo(-13,-14);veil.lineTo(-26,7);veil.lineTo(-14,3);veil.lineTo(-6,20);veil.lineTo(2,3);veil.lineTo(18,14);veil.lineTo(13,-14);veil.close();c.drawPath(veil,p);}
-            if(type==6){paint(color("#7B5A9A"));Path snout=new Path();snout.moveTo(7,-30);snout.lineTo(28,-23);snout.lineTo(13,-17);snout.close();c.drawPath(snout,p);line(-13,-34,-20,-52,color("#C5B0FF"),3);line(4,-35,11,-54,color("#C5B0FF"),3);}
-            glow(-8,-29,3,type==2?color("#A6F1FF"):color("#FF5FBA"),5);glow(8,-29,3,type==2?color("#A6F1FF"):color("#FF5FBA"),5);
-            paint(color("#F9D9FF"));c.drawOval(-9,-30,-6,-27,p);c.drawOval(6,-30,9,-27,p);
-            if(type==4){line(-24,-14,-36,-35,color("#9D88D5"),3);line(24,-14,36,-35,color("#9D88D5"),3);}
-            c.restore();
-        }
-        void drawBoss(float x,float y,float scale){
-            c.save();c.translate(x,y);c.scale(scale,scale);
-            glow(0,0,65,realmAccent(),30);
-            // crown spikes
-            paint(color("#211329"));Path crown=new Path();crown.moveTo(-38,-28);crown.lineTo(-48,-66);crown.lineTo(-22,-49);crown.lineTo(-8,-80);crown.lineTo(4,-48);crown.lineTo(28,-73);crown.lineTo(29,-43);crown.lineTo(45,-54);crown.lineTo(37,-21);crown.close();c.drawPath(crown,p);
-            // each guardian has a distinct silhouette beyond its palette
-            if(region==4){paint(color("#3B2862"));Path wings=new Path();wings.moveTo(-24,-18);wings.lineTo(-68,-52);wings.lineTo(-60,-12);wings.lineTo(-49,8);wings.lineTo(-22,3);wings.lineTo(23,-18);wings.lineTo(66,-52);wings.lineTo(58,-10);wings.lineTo(45,9);wings.lineTo(22,3);wings.close();c.drawPath(wings,p);line(-62,-44,-48,2,realmAccent(),2);line(61,-43,47,2,realmAccent(),2);}
-            if(region==3){paint(color("#17404D"));for(int i=0;i<5;i++){Path tent=new Path();tent.moveTo(-26+i*13,10);tent.quadTo(-45+i*21,34+(i%2)*9,-38+i*20,48);c.drawPath(tent,p);}}
-            if(region==2){paint(color("#A1DDF1"));Path ice=new Path();ice.moveTo(-30,-27);ice.lineTo(-39,-62);ice.lineTo(-18,-42);ice.lineTo(-8,-74);ice.lineTo(3,-43);ice.lineTo(20,-63);ice.lineTo(30,-27);ice.close();c.drawPath(ice,p);}
-            if(region==5){paint(Color.argb(130,Color.red(realmAccent()),Color.green(realmAccent()),Color.blue(realmAccent())));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);c.drawOval(-54,-80,54,34,p);c.drawOval(-64,-90,64,44,p);p.setStyle(Paint.Style.FILL);}
-            // massive cloak
-            paint(color("#171120"));Path cloak=new Path();float flap=(float)Math.sin(System.currentTimeMillis()/125.0)*4f;cloak.moveTo(-35,-26);cloak.lineTo(-51,10);cloak.lineTo(-58,49+flap);cloak.lineTo(-29,36+flap*0.4f);cloak.lineTo(0,56);cloak.lineTo(26,39-flap*0.3f);cloak.lineTo(54,49-flap);cloak.lineTo(43,4);cloak.lineTo(34,-27);cloak.close();c.drawPath(cloak,p);
-            paint(realmAccent());Path armor=new Path();armor.moveTo(-28,-28);armor.lineTo(-19,-44);armor.lineTo(0,-50);armor.lineTo(20,-43);armor.lineTo(30,-23);armor.lineTo(21,15);armor.lineTo(0,31);armor.lineTo(-22,12);armor.close();c.drawPath(armor,p);
-            // runic ribs
-            for(int i=0;i<4;i++){line(-18+i*10,-16,-12+i*8,13,realmAccent(),2);}
-            // skull mask
-            paint(color("#0A0B17"));Path skull=new Path();skull.moveTo(-22,-37);skull.lineTo(-17,-57);skull.lineTo(0,-65);skull.lineTo(18,-56);skull.lineTo(23,-35);skull.lineTo(12,-18);skull.lineTo(0,-13);skull.lineTo(-13,-20);skull.close();c.drawPath(skull,p);
-            glow(-9,-42,5,realmAccent(),10);glow(9,-42,5,realmAccent(),10);
-            paint(color("#FFE3F0"));c.drawOval(-12,-44,-6,-39,p);c.drawOval(6,-44,12,-39,p);
-            // crown highlights, weapon
-            line(-38,-28,-47,-56,color("#B78AFF"),2);line(29,-30,28,-62,color("#B78AFF"),2);
-            line(32,-1,48,24,color("#8A63B9"),5);line(48,24,59,43,color("#F5B2FF"),3);
-            c.restore();
-        }
-        void hero(){
-            txt("HUNTER PROFILE",18,168,15,Color.WHITE,true);
-            rect(18,181,372,323,color("#17172F"),14);
-            gradient(28,192,111,282,color("#51408A"),color("#17142A"),12);heroPortrait(69,236,1.65f);
-            txt("VOIDWALKER",124,210,13,Color.WHITE,true);txt("LEVEL "+level+"  /  "+(level<5?"WAYFARER":level<12?"RIFT HUNTER":"ABYSS SLAYER"),124,228,8,color("#B4A6D9"),true);
-            txt("XP "+xp+" / "+xpNeed(),124,246,9,color("#D2B7FF"),true);bar(124,254,220,6,xp/(float)xpNeed(),color("#34304C"),color("#B58BFF"));
-            txt("Skill points: "+skillPoints,124,276,9,color("#F0D38A"),true);
-            txt("WPN  "+weaponNames()[weaponId]+"  •  "+rarityName(weaponRarity),124,293,7.5f,rarityColor(weaponRarity),true);
-            txt("ARM  "+armorNames()[armorId]+"  •  "+rarityName(armorRarity),124,307,7.5f,rarityColor(armorRarity),true);
-            txt("Tap left/right side to switch collected gear",124,318,6.5f,color("#777493"),false);
-            stat(18,338,"ATTACK POWER",actualAttack(),color("#F1D18B"));stat(198,338,"DEFENSE",actualDefense(),color("#9EE7FF"));
-            stat(18,405,"MAX HEALTH",actualMaxHp(),color("#FF9DBB"));stat(198,405,"CRITICAL",crit+"%",color("#C8A5FF"));
-            stat(18,472,"BOSS SLAYERS",bossKills,color("#FF9FB8"));stat(198,472,"RELIC SHARDS",shards,color("#9DEBFF"));
-            txt("EQUIPMENT FORGE",18,548,12,Color.WHITE,true);
-            itemCard(18,560,180,629,"⚔","RIFTBLADE","Tier "+weaponTier+"  •  +3 ATK/tier",upgradeCost(),0);
-            itemCard(190,560,372,629,"⬟","WARDEN ARMOR","Tier "+armorTier+"  •  +15 HP/tier",100+armorTier*85,1);
-            itemCard(18,640,180,709,"✦","VOID RELIC","Tier "+relicTier+"  •  +ATK/DEF",140+relicTier*120,2);
-            itemCard(190,640,372,709,"🧪","POTION KIT","Have: "+potions+"  •  heal 45%",45,3);
-        }
-        void stat(int x,int y,String name,Object val,int co){rect(x,y,x+174,y+54,color("#17172F"),10);txt(name,x+12,y+18,8,color("#8F8BAF"),true);txt(String.valueOf(val),x+12,y+42,18,co,true);}
-        void itemCard(int l,int t,int r,int b,String icon,String name,String desc,int cost,int type){
-            rect(l,t,r,b,color("#1B1A35"),10);
-            if(type==0&&weaponArt[weaponId]!=null)drawSprite(weaponArt[weaponId],l+5,t+4,24,32);
-            else if(type==1&&armorArt[armorId]!=null)drawSprite(armorArt[armorId],l+5,t+4,24,32);
-            else if(type==2&&caseArt[1]!=null)drawSprite(caseArt[1],l+5,t+4,24,32);
-            else txt(icon,l+9,t+21,14,type==3?color("#FF9EBB"):color("#C6A6FF"),true);
-            txt(name,l+30,t+19,8,Color.WHITE,true);txt(desc,l+9,t+35,7,color("#A5A1C4"),false);
-            rect(r-58,t+43,r-7,b-5,color("#393057"),6);center(type==3?"BUY":cost+" G",r-32,t+57,7,color("#F0D48C"),true);
-        }
-        String regionName(){String[] n={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};return n[Math.floorMod(region,n.length)];}
-        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};if(r==0)return true;if(level<req[r])return false;for(int i=0;i<r;i++)if(regionBosses[i]<3)return false;return true;}
-        String[] weaponNames(){return new String[]{"Riftfang","Mooncleaver","Sunspike","Frostbrand","Ashen Katana","Voidreaver","Crownpiercer","Starfall Edge"};}
-        String[] armorNames(){return new String[]{"Warden Coat","Ashguard","Frostplate","Tidebound Mail","Astral Mantle","Hollow Aegis","Riftwalker Suit","Eclipse Crown"};}
-        String rarityName(int r){String[] n={"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};return n[Math.max(0,Math.min(5,r))];}
-        int rarityColor(int r){int[] a={color("#B6B8C8"),color("#72D6A3"),color("#69B7FF"),color("#C18BFF"),color("#F0C96E"),color("#FF6FB1")};return a[Math.max(0,Math.min(5,r))];}
-        void chestArt(float x,float y,float scale,int rarity,boolean open){
-            c.save();c.translate(x,y);c.scale(scale,scale);int rc=rarityColor(rarity);glow(0,8,27,rc,13);
-            Bitmap art=caseArt[Math.max(0,Math.min(2,rarity-1))];
-            if(art!=null){drawSprite(art,-32,-38,64,76);if(open){glow(0,-20,15,rc,14);for(int i=0;i<9;i++){float a=(i*41+System.currentTimeMillis()/10)%360;paint(Color.argb(230,255,239,188));c.drawCircle((float)Math.cos(Math.toRadians(a))*(10+i%4*6),-20+(float)Math.sin(Math.toRadians(a))*(9+i%3*4),1.5f+(i%2),p);}}c.restore();return;}
-            paint(color("#151324"));Path base=new Path();base.moveTo(-27,-2);base.lineTo(27,-2);base.lineTo(23,22);base.lineTo(-23,22);base.close();c.drawPath(base,p);gradient(-27,-13,27,7,color("#5D402E"),color("#201B33"),5);paint(color("#A77D4E"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(-27,-14,27,9,5,5,p);p.setStyle(Paint.Style.FILL);rect(-5,-14,5,22,rc,2);rect(-24,4,24,8,color("#D6B16D"),2);if(open){glow(0,-18,14,rc,15);}c.restore();
-        }
-        void cases(){
-            txt("RELIC CASES",18,168,15,Color.WHITE,true);txt("Every opening is permanent loot • duplicates become gold",18,186,8,color("#9792BB"),false);
-            int[] co={color("#77798A"),color("#4B9FC4"),color("#A84FC7")};String[] names={"WANDERER CACHE","ASTRAL VAULT","ECLIPSE CASE"};String[] cost={"120 GOLD","1 SHARD","300 GOLD + 2 SHARDS"};String[] detail={"Common → Epic","Rare → Mythic","Epic → Mythic"};
-            for(int i=0;i<3;i++){int l=18+i*119;int rr=l+111;rect(l,202,rr,506,color("#17172F"),12);outline(l,202,rr,506,co[i],12,1);chestArt(l+55,283,1.0f,i+1,false);center(names[i],l+55,337,7.5f,Color.WHITE,true);center(cost[i],l+55,356,7,color("#F0D58F"),true);center(detail[i],l+55,375,7,color("#A6A0C6"),false);center(new String[]{"Gear roll","Better odds","Best odds"}[i],l+55,405,8,co[i],true);rect(l+8,455,rr-8,489,co[i],8);center("OPEN CASE",l+55,476,8,Color.WHITE,true);}
-            rect(18,519,372,576,color("#1B1933"),10);txt("COLLECTION",30,538,9,color("#CBAFFF"),true);txt("Weapons "+Integer.bitCount(weaponCollection)+"/8",30,555,9,Color.WHITE,true);txt("Armor "+Integer.bitCount(armorCollection)+"/8",157,555,9,Color.WHITE,true);txt("Cases opened: "+casesOpened,276,555,8,color("#F0D58F"),true);
-            rect(18,587,372,715,color("#111324"),11);if(System.currentTimeMillis()<lootNoticeUntil){chestArt(52,649,0.72f,3,true);txt("LATEST DROP",85,613,8,color("#BCA5F5"),true);txt(lootNotice,85,635,10,Color.WHITE,true);txt(lastLoot,85,653,8,color("#B2AACB"),false);txt("Gear stays in your collection. Tap HERO to equip.",30,690,8,color("#9C97B9"),false);}else{chestArt(52,649,0.72f,2,false);txt("LOOT REVEAL",85,613,9,color("#BCA5F5"),true);txt("Open a case to find rare weapons",85,634,10,Color.WHITE,true);txt("and armor with permanent stat bonuses.",85,651,9,color("#B2AACB"),false);txt("Duplicates are automatically dismantled for gold.",30,690,8,color("#9C97B9"),false);}
-        }
-        void openCase(int type){
-            int costGold=type==0?120:type==1?0:300;int costShards=type==0?0:type==1?1:2;
-            if(gold<costGold||shards<costShards){lootNotice="Not enough gold or shards";lootNoticeUntil=System.currentTimeMillis()+2500;play(sClick);return;}
-            gold-=costGold;shards-=costShards;casesOpened++;
-            int roll=rng.nextInt(100), rarity;
-            if(type==0)rarity=roll<50?0:roll<77?1:roll<91?2:roll<98?3:4;
-            else if(type==1)rarity=roll<25?1:roll<60?2:roll<85?3:roll<97?4:5;
-            else rarity=roll<5?2:roll<30?3:roll<75?4:5;
-            boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
-            power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
-            if(weapon){weaponCollection|=(1<<id);ownedWeaponPower[id]=Math.max(ownedWeaponPower[id],power);ownedWeaponRarity[id]=Math.max(ownedWeaponRarity[id],rarity);prefs.edit().putInt("wp"+id,ownedWeaponPower[id]).putInt("wr"+id,ownedWeaponRarity[id]).apply();
-                if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=ownedWeaponRarity[id];lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
-            else{armorCollection|=(1<<id);ownedArmorPower[id]=Math.max(ownedArmorPower[id],power);ownedArmorRarity[id]=Math.max(ownedArmorRarity[id],rarity);prefs.edit().putInt("ap"+id,ownedArmorPower[id]).putInt("ar"+id,ownedArmorRarity[id]).apply();
-                if(armorId==id||power>armorPower){armorId=id;armorPower=power;armorRarity=ownedArmorRarity[id];lootNotice="EQUIPPED "+armorNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+armorNames()[id];}}
-            lastLoot=rarityName(rarity)+" • +"+power+(weapon?" ATK":" DEF");lootNoticeUntil=System.currentTimeMillis()+5000;flashTicks=8;play(sWin);save();invalidate();
-        }
-        void cycleGear(boolean weapon){
-            if(weapon){for(int step=1;step<=8;step++){int id=(weaponId+step)%8;if((weaponCollection&(1<<id))!=0){weaponId=id;weaponPower=ownedWeaponPower[id];weaponRarity=ownedWeaponRarity[id];break;}}}
-            else{for(int step=1;step<=8;step++){int id=(armorId+step)%8;if((armorCollection&(1<<id))!=0){armorId=id;armorPower=ownedArmorPower[id];armorRarity=ownedArmorRarity[id];break;}}}
-            play(sBuy);save();invalidate();
-        }
-        void skills(){
-            txt("ASCENSION TREE",18,168,15,Color.WHITE,true);txt("Spend skill points earned by leveling.",18,186,9,color("#9792BB"),false);
-            rect(18,199,372,266,color("#17172F"),12);center("VOIDWALKER CORE",195,220,10,color("#C7A5FF"),true);
-            glow(195,238,17,color("#6E4CC5"),10);paint(color("#B99AFF"));Path diamond=new Path();diamond.moveTo(195,221);diamond.lineTo(209,238);diamond.lineTo(195,255);diamond.lineTo(181,238);diamond.close();c.drawPath(diamond,p);
-            center("SKILL POINTS: "+skillPoints,195,260,8,color("#F1D58C"),true);
-            skillCard(18,280,372,367,"⚔","RIFT EDGE","Deal +35% damage on skill strike",strength,0);
-            skillCard(18,378,372,465,"✚","LIFE THREAD","+18 max health per rank",vitality,1);
-            skillCard(18,476,372,563,"◉","VOID FOCUS","+2% critical chance per rank",focus,2);
-            skillCard(18,574,372,661,"✧","ECHO STRIKE","Every 4th hit deals bonus damage",crit-5,3);
-            rect(18,674,372,715,color("#25203E"),10);center("SKILL TREE • EACH RANK COSTS 1 POINT",195,699,8,color("#C4A5FF"),true);
-        }
-        void skillCard(int l,int t,int r,int b,String ico,String name,String desc,int rank,int type){
-            rect(l,t,r,b,color("#19182F"),11);gradient(l+8,t+10,l+49,t+51,color("#58418E"),color("#241D42"),9);center(ico,l+28,t+36,17,color("#DCC8FF"),true);
-            txt(name,l+59,t+23,10,Color.WHITE,true);txt(desc,l+59,t+39,8,color("#A6A0C6"),false);txt("RANK "+rank,l+59,t+59,8,color("#C3B0F4"),true);
-            rect(r-72,t+20,r-10,t+61,skillPoints>0?color("#6747A5"):color("#2D2A43"),8);center(skillPoints>0?"UPGRADE":"LOCKED",r-41,t+45,7,Color.WHITE,true);
-        }
-        void quests(){
-            txt("CONTRACTS & EVENTS",18,168,15,Color.WHITE,true);txt("Hunt, grow stronger, claim your rewards.",18,186,9,color("#9792BB"),false);
-            rect(18,199,372,303,color("#211A36"),12);gradient(18,199,372,205,color("#F0D18A"),color("#8C58DF"),2);
-            txt("✦  RIFT INVASION",31,223,12,color("#BDEFFF"),true);txt("Limited-time encounter • no internet needed",31,241,8,color("#B4ACD0"),false);
-            txt("Seal rifts by defeating 10 enemies.",31,260,9,Color.WHITE,true);bar(31,271,230,7,eventProgress/10f,color("#34304D"),color("#8DEBFF"));
-            txt(eventProgress+"/10",270,279,9,color("#9DEBFF"),true);
-            rect(281,216,357,253,eventProgress>=10&&eventClaimed==0?color("#4D4B84"):color("#2D2942"),8);center(eventClaimed>0?"CLAIMED":eventProgress>=10?"CLAIM":"IN PROGRESS",319,234,7,Color.WHITE,true);center("+180 G",319,246,8,color("#F1D58D"),true);
-            questCard(18,316,372,407,"01","THE HUNTER'S PATH","Defeat 5 enemies",Math.min(5,kills),5,"+90 gold");
-            questCard(18,420,372,511,"02","BOSS BREAKER","Defeat 1 raid boss",Math.min(1,bossKills),1,"+2 shards");
-            questCard(18,524,372,615,"03","RELIC SEEKER","Collect 3 relic shards",Math.min(3,shards),3,"+1 potion");
-            rect(18,628,372,715,color("#17172F"),11);txt("DAILY BLESSING",31,650,10,color("#F1D58D"),true);txt("Earn a reward after your next hunt.",31,670,8,color("#A5A1C4"),false);center(dailyClaimed>0?"TODAY'S GIFT CLAIMED":kills>0?"TAP TO CLAIM DAILY GIFT":"KILL 1 ENEMY TO CHARGE",195,699,8,color("#BCA3FF"),true);
-        }
-        void questCard(int l,int t,int r,int b,String num,String name,String desc,int progress,int goal,String reward){
-            rect(l,t,r,b,color("#19182F"),10);txt(num,l+11,t+20,8,color("#A990E8"),true);txt(name,l+38,t+20,9,Color.WHITE,true);txt(desc,l+38,t+37,8,color("#A5A1C4"),false);
-            bar(l+38,t+47,150,5,progress/(float)goal,color("#34304D"),color("#B18AFF"));txt(progress+"/"+goal,l+194,t+53,7,color("#C7B4F3"),true);txt(reward,l+38,t+69,8,color("#F1D58D"),true);
-            rect(r-78,t+24,r-9,t+61,progress>=goal?color("#51407E"):color("#2B2940"),7);center(progress>=goal?"READY":"HUNT",r-43,t+46,7,Color.WHITE,true);
-        }
-        void world(){
-            txt("REALM ATLAS",18,168,15,Color.WHITE,true);txt("6 regions • guardian kills and levels unlock the path",18,186,8,color("#9792BB"),false);
-            String[] names={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};
-            String[] desc={"Lv. 1 • Broken ruins","Lv. 5 • Cinder fields","Lv. 10 • Frozen wastes","Lv. 16 • Drowned kingdom","Lv. 22 • Astral frontier","Lv. 30 • End of reality"};
-            int[] tones={color("#6550A1"),color("#9B4E36"),color("#3B7398"),color("#277D83"),color("#7659B7"),color("#99365D")};
-            for(int i=0;i<6;i++)realmCard(18,199+i*86,372,277+i*86,i,names[i],desc[i],tones[i],realmUnlocked(i));
-            rect(18,718,372,729,color("#17172F"),5);bar(19,718,352,3,campaignSlays()/1080f,color("#17172F"),color("#B18AFF"));txt(campaignComplete?"CAMPAIGN COMPLETE • ENDGAME HUNTS UNLOCKED":"CAMPAIGN "+campaignSlays()+"/1080 HUNTS  •  GUARDIANS "+campaignGuardians()+"/18",27,726,7,campaignComplete?color("#F0D58F"):color("#BBA4F4"),true);
-        }
-        void realmCard(int l,int t,int r,int b,int idx,String name,String desc,int co,boolean unlocked){
-            gradient(l,t,r,b,co,color("#111322"),9);outline(l,t,r,b,unlocked?co:color("#353247"),9,1);
-            if(realmArt[idx]!=null){drawSprite(realmArt[idx],r-84,t+4,80,68);rect(r-84,t+4,r-4,t+72,Color.argb(38,4,4,16),6);outline(r-84,t+4,r-4,t+72,co,6,1);}
-            else{glow(r-42,t+33,19,co,10);paint(Color.argb(105,0,0,0));Path mountain=new Path();mountain.moveTo(r-93,t+60);mountain.lineTo(r-74,t+22);mountain.lineTo(r-55,t+43);mountain.lineTo(r-36,t+14);mountain.lineTo(r-8,t+60);mountain.close();c.drawPath(mountain,p);}
-            txt("0"+(idx+1),l+11,t+18,7,color("#E0CBFF"),true);txt(name,l+34,t+20,9.5f,Color.WHITE,true);txt(desc,l+34,t+36,7,color("#D2C9E8"),false);
-            rect(l+34,t+44,l+127,t+65,unlocked?color("#493B73"):color("#27243A"),6);center(unlocked?"ENTER REALM":"LOCKED",l+80,t+58,6.5f,unlocked?Color.WHITE:color("#77738F"),true);
-            int[] req={1,5,10,16,22,30};String state=!unlocked?("LV "+req[idx]+" • G "+regionBosses[idx]+"/3"):(regionKills[idx]>0&&regionKills[idx]%60==0&&regionBosses[idx]<regionKills[idx]/60?"GUARDIAN READY":"HUNT "+waveProgress(idx)+"/60 • G "+regionBosses[idx]+"/3");center(state,r-101,t+65,5.8f,color(unlocked?"#D7F7D9":"#B1AEC5"),true);
-        }
-        void nav(){
-            rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
-            String[] labels={"BATTLE","HERO","SKILLS","CASES","QUESTS","WORLD"};String[] icons={"⚔","♙","✧","▣","☷","⌖"};
-            for(int i=0;i<6;i++){float x=32.5f+i*65;int co=tab==i?color("#D0ACFF"):color("#777691");if(tab==i)rect(x-23,750,x+23,806,color("#29223F"),9);center(icons[i],x,772,17,co,true);center(labels[i],x,792,6.4f,co,true);}
-            center("PROJECT: ASCENSION  •  OFFLINE DARK RPG",195,825,7,color("#555471"),true);
+        static final int W=960,H=540, WORLD_W=12000,WORLD_H=8000, ZONE=4000;
+        Canvas c; Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+        float sx=1,sy=1,px=520,py=530,camX,camY,moveX,moveY,aimX,aimY,aimAngle=0.3f;
+        int level=1,xp=0,xpNext=150,health=100,maxHealth=100,coins=80,kills=0,relaysTotal=0,shotsFired=0,shotsHit=0;
+        int currentGun=0,medkits=2,ammoPickupCount=0,openedCaches=0,playerDamage=0,combo=0;
+        int[] mag={12,0,0},reserve={96,0,0};
+        boolean[] gunUnlocked={true,false,false},bossDefeated=new boolean[6],bossSpawned=new boolean[6];
+        int[] relayCount=new int[6],zoneKills=new int[6];
+        int selectedQuest=0,notificationColor=0;
+        boolean aimActive=false,firing=false,mapOpen=false,paused=false;
+        String notice="Find the signal relays. Stay alive.",objectiveText="Find the first signal relay";
+        long noticeUntil=0,lastUpdate=0,lastSave=0,lastSpawn=0,lastShot=0,reloadUntil=0,dashUntil=0,dashReadyAt=0,invincibleUntil=0,lastDamageAt=0,lastPickupAt=0;
+        long firePressedAt=0,damageFlashUntil=0,questPulseUntil=0;
+        int movePid=-1,aimPid=-1,firePid=-1;
+        float moveTouchX=105,moveTouchY=430,aimTouchX=770,aimTouchY=430;
+        float checkpointX=520,checkpointY=530;
+        SharedPreferences prefs; Random rng=new Random(); ArrayList<Prop> props=new ArrayList<>(); ArrayList<Landmark> points=new ArrayList<>(); ArrayList<Mob> mobs=new ArrayList<>(); ArrayList<Shot> shots=new ArrayList<>(); ArrayList<Drop> drops=new ArrayList<>(); ArrayList<Spark> sparks=new ArrayList<>();
+        Bitmap[] regionArt=new Bitmap[6], monsterArt=new Bitmap[7], bossArt=new Bitmap[6], caseArt=new Bitmap[3];
+        Bitmap heroIdleArt,heroFireArt,heroDashArt;
+        SoundPool soundPool; MediaPlayer ambient;
+        int sPistol,sRifle,sShotgun,sHit,sBoss,sLoot,sDash,sQuest,sEmpty,sReload,sLevel;
 
+        final class Prop {
+            float x,y,r; int type,zone,variant; boolean solid;
+            Prop(float xx,float yy,int t,float rr,int z,int v){x=xx;y=yy;type=t;r=rr;zone=z;variant=v;solid=t==0||t==1||t==2||t==4||t==6;}
         }
-        @Override public boolean onTouchEvent(MotionEvent e){
-            if(e.getAction()!=MotionEvent.ACTION_UP)return true;
-            float x=e.getX()/sx,y=e.getY()/sy;
-            if(y>=44&&y<=78&&x>=330){toggleAudio();invalidate();return true;}
-            if(y>=735){tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);invalidate();return true;}
-            if(tab==0){
-                if(y>=507&&y<=570){if(x<90){heroX=Math.max(52,heroX-34);lastStep=System.currentTimeMillis();}else if(x<160){jumpUntil=System.currentTimeMillis()+680;heroX=Math.min(322,heroX+8);play(sSkill);}else if(x<278)attackEnemy();else{heroX=Math.min(322,heroX+34);lastStep=System.currentTimeMillis();} }
-                else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else tab=3;}
-                else if(y>=646&&y<=715&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
-            }else if(tab==1){
-                if(y>=181&&y<=323){if(x<195)cycleGear(true);else cycleGear(false);}
-                else if(y>=560&&y<=629){if(x<184)buyUpgrade(0);else buyUpgrade(1);}
-                else if(y>=640&&y<=709){if(x<184)buyUpgrade(2);else buyUpgrade(3);}
-            }else if(tab==2){
-                if(y>=280&&y<=367)upgradeSkill(0);
-                else if(y>=378&&y<=465)upgradeSkill(1);
-                else if(y>=476&&y<=563)upgradeSkill(2);
-                else if(y>=574&&y<=661)upgradeSkill(3);
-            }else if(tab==3){
-                if(y>=445&&y<=505){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
-                else if(y>=507&&y<=570){if(x<137)openCase(0);else if(x<255)openCase(1);else openCase(2);}
-            }else if(tab==4){
-                if(y>=199&&y<=303&&eventProgress>=10&&eventClaimed==0){gold+=180;shards+=2;eventClaimed=1;play(sWin);save();}
-                else if(y>=316&&y<=407&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
-                else if(y>=420&&y<=511&&bossKills>prefs.getInt("claimedBossKills",0)){shards+=2;prefs.edit().putInt("claimedBossKills",bossKills).apply();gold+=120;play(sWin);save();}
-                else if(y>=524&&y<=615&&shards>=3){shards-=3;potions++;play(sBuy);save();}
-                else if(y>=628&&y<=715&&kills>0&&dailyClaimed==0){dailyClaimed=1;gold+=55;potions++;play(sWin);save();}
-            }else if(tab==5){
-                if(y>=199&&y<279&&realmUnlocked(0)){region=0;spawnEnemy();}
-                else if(y>=285&&y<365&&realmUnlocked(1)){region=1;spawnEnemy();}
-                else if(y>=371&&y<451&&realmUnlocked(2)){region=2;spawnEnemy();}
-                else if(y>=457&&y<537&&realmUnlocked(3)){region=3;spawnEnemy();}
-                else if(y>=543&&y<623&&realmUnlocked(4)){region=4;spawnEnemy();}
-                else if(y>=629&&y<709&&realmUnlocked(5)){region=5;spawnEnemy();}
+        final class Landmark {
+            float x,y; int zone,type,id; String name; boolean used;
+            Landmark(float xx,float yy,int z,int t,int i,String n){x=xx;y=yy;zone=z;type=t;id=i;name=n;}
+        }
+        final class Mob {
+            float x,y,vx,vy,angle; int type,zone,hp,maxHp,damage; boolean big,alive=true;
+            long nextAttack,stunUntil; float scale=1;
+            Mob(float xx,float yy,int t,int z,boolean b){x=xx;y=yy;type=t;zone=z;big=b;scale=b?1.65f:0.9f;maxHp=b?900+level*75+z*240:44+level*5+z*19+t*12;hp=maxHp;damage=b?18+z*3:5+z*2+t;nextAttack=System.currentTimeMillis()+700+rng.nextInt(700);}
+        }
+        final class Shot {
+            float x,y,vx,vy;int damage,life;boolean hostile;int type;
+            Shot(float xx,float yy,float vx0,float vy0,int d,boolean h,int t){x=xx;y=yy;vx=vx0;vy=vy0;damage=d;hostile=h;type=t;life=h?100:70;}
+        }
+        final class Drop {
+            float x,y;int type,value,zone;long born=System.currentTimeMillis();
+            Drop(float xx,float yy,int t,int v,int z){x=xx;y=yy;type=t;value=v;zone=z;}
+        }
+        final class Spark {
+            float x,y,vx,vy,size;int color,life,maxLife;
+            Spark(float xx,float yy,float dx,float dy,float sz,int co,int lf){x=xx;y=yy;vx=dx;vy=dy;size=sz;color=co;life=lf;maxLife=lf;}
+        }
+
+        GameView(){
+            super(MainActivity.this);
+            prefs=getSharedPreferences("ascension_frontier_save",MODE_PRIVATE);
+            loadArt();makeLandmarks();generateProps();loadGame();initAudio();
+            setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+            setFocusable(true);setContentDescription("ASCENSION FRONTIER top down exploration shooter");
+            if(bossSpawned[currentZone()]&&!bossDefeated[currentZone()])spawnGuardian(currentZone());
+            for(int i=0;i<7;i++)spawnMobAroundPlayer(false);
+            lastUpdate=System.currentTimeMillis();postInvalidateDelayed(33);
+        }
+        int col(String s){return Color.parseColor(s);}
+        void paint(int co){p.reset();p.setAntiAlias(true);p.setFilterBitmap(true);p.setColor(co);}
+        void box(float l,float t,float r,float b,int co,float rad){paint(co);c.drawRoundRect(l,t,r,b,rad,rad,p);}
+        void stroke(float l,float t,float r,float b,int co,float rad,float sw){paint(co);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sw);c.drawRoundRect(l,t,r,b,rad,rad,p);p.setStyle(Paint.Style.FILL);}
+        void line(float x1,float y1,float x2,float y2,int co,float sw){paint(co);p.setStrokeWidth(sw);p.setStrokeCap(Paint.Cap.ROUND);c.drawLine(x1,y1,x2,y2,p);}
+        void text(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));p.setShadowLayer(2,0,1,Color.argb(160,0,0,0));c.drawText(s,x,y,p);p.clearShadowLayer();}
+        void centre(String s,float x,float y,float size,int co,boolean bold){paint(co);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));p.setShadowLayer(2,0,1,Color.argb(180,0,0,0));c.drawText(s,x-p.measureText(s)/2,y,p);p.clearShadowLayer();}
+        void circle(float x,float y,float r,int co){paint(co);c.drawCircle(x,y,r,p);}
+        void glow(float x,float y,float r,int co,float blur){paint(co);p.setMaskFilter(new BlurMaskFilter(blur,BlurMaskFilter.Blur.NORMAL));c.drawCircle(x,y,r,p);p.setMaskFilter(null);}
+        void fillGradient(float l,float t,float r,float b,int a,int z,float radius){paint(Color.WHITE);p.setShader(new LinearGradient(l,t,r,b,a,z,Shader.TileMode.CLAMP);c.drawRoundRect(l,t,r,b,radius,radius,p);p.setShader(null);}
+
+        void loadArt(){
+            try{
+                Bitmap w=loadVector(R.drawable.art_worlds,390,1500);for(int i=0;i<6;i++)regionArt[i]=crop(w,0,i*250,390,250);
+                Bitmap h=loadVector(R.drawable.art_heroes,96,384);heroIdleArt=crop(h,0,0,96,128);heroFireArt=crop(h,0,128,96,128);heroDashArt=crop(h,0,256,96,128);
+                Bitmap e=loadVector(R.drawable.art_enemies,384,512);for(int i=0;i<7;i++)monsterArt[i]=crop(e,(i%4)*96,(i/4)*128,96,128);for(int i=0;i<6;i++){int j=7+i;bossArt[i]=crop(e,(j%4)*96,(j/4)*128,96,128);}
+                Bitmap it=loadVector(R.drawable.art_items,400,384);for(int i=0;i<3;i++){int j=16+i;caseArt[i]=crop(it,(j%5)*80,(j/5)*96,80,96);}
+            }catch(Exception ignored){}
+        }
+        Bitmap loadVector(int id,int w,int h){try{Drawable d=getResources().getDrawable(id).mutate();Bitmap b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);Canvas old=c;c=new Canvas(b);d.setBounds(0,0,w,h);d.draw(c);c=old;return b;}catch(Exception e){return null;}}
+        Bitmap crop(Bitmap b,int x,int y,int w,int h){try{return b==null?null:Bitmap.createBitmap(b,x,y,w,h);}catch(Exception e){return null;}}
+        void sprite(Bitmap b,float x,float y,float w,float h){if(b==null)return;paint(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(b,null,new RectF(x,y,x+w,y+h),p);}
+        int zoneAt(float x,float y){int cx=Math.max(0,Math.min(2,(int)(x/ZONE)));int row=y<ZONE?0:1;return row==0?cx:5-cx;}
+        int currentZone(){return zoneAt(px,py);}
+        String zoneName(int z){String[] a={"MOSSWOOD OUTSKIRTS","EMBERFALL","FROST VEIL","SUNKEN CITADEL","ASTRAL WASTES","THE LAST VEIL"};return a[Math.max(0,Math.min(5,z))];}
+        int accent(int z){int[] a={col("#7DDCA2"),col("#F29B5D"),col("#90DFFF"),col("#55D7C4"),col("#B69AFF"),col("#FF6C9F")};return a[Math.floorMod(z,6)];}
+        int groundColor(int z){int[] a={col("#253C31"),col("#493129"),col("#243B4B"),col("#1E3F42"),col("#312849"),col("#321C32")};return a[Math.floorMod(z,6)];}
+        int terrainNoise(int x,int y){int n=x*374761393+y*668265263+0x27d4eb2d;n=(n^(n>>>13))*1274126177;return (n^(n>>>16))&0x7fffffff;}
+        int shade(int color,int amount){return Color.rgb(Math.max(0,Math.min(255,Color.red(color)+amount)),Math.max(0,Math.min(255,Color.green(color)+amount)),Math.max(0,Math.min(255,Color.blue(color)+amount));}
+        void makeLandmarks(){
+            for(int z=0;z<6;z++){
+                int row=z<3?0:1,gridCol=row==0?z:5-z;float ox=gridCol*ZONE,oy=row*ZONE;
+                points.add(new Landmark(ox+360,oy+430,z,3,points.size(),"FIELD CAMP "+(z+1)));
+                points.add(new Landmark(ox+700,oy+780,z,0,points.size(),"SIGNAL RELAY A"));
+                points.add(new Landmark(ox+3260,oy+920,z,0,points.size(),"SIGNAL RELAY B"));
+                points.add(new Landmark(ox+850,oy+3150,z,0,points.size(),"SIGNAL RELAY C"));
+                points.add(new Landmark(ox+3200,oy+3180,z,0,points.size(),"SIGNAL RELAY D"));
+                points.add(new Landmark(ox+2050,oy+630,z,1,points.size(),"SUPPLY CACHE"));
+                points.add(new Landmark(ox+1960,oy+3250,z,1,points.size(),"HIDDEN CACHE"));
+                points.add(new Landmark(ox+2040,oy+1990,z,2,points.size(),"GUARDIAN ALTAR"));
             }
-            invalidate();return true;
         }
-        void attackEnemy(){
-            long now=System.currentTimeMillis();if(now-lastAttackAt<280)return;lastAttackAt=now;
-            if(Math.abs(enemyX-heroX)>128){combatNotice="TOO FAR — MOVE CLOSER";combatNoticeUntil=now+1100;play(sClick);invalidate();return;}
-            combo=Math.min(99,combo+1);hitTicks=10;shakeTicks=4;mana=Math.min(maxMana,mana+4+focus);
-            boolean critical=rng.nextInt(100)<Math.min(70,crit+focus*2);
-            int damage=actualAttack()+rng.nextInt(Math.max(4,actualAttack()/3+1));if(critical)damage=(int)(damage*1.85);
-            if(combo%4==0)damage+=actualAttack()/2+strength*6;
-            enemyHp-=damage;combatNotice=(critical?"CRITICAL  ":combo%4==0?"COMBO FINISH  ":"HIT  ")+damage;combatNoticeUntil=now+800;play(critical?sCrit:sHit);flashTicks=critical?5:2;
-            if(enemyHp<=0){victory();}
-            save();invalidate();
+        void generateProps(){
+            Random r=new Random(0x415343454e444L);
+            for(int i=0;i<1180;i++){
+                float x=80+r.nextFloat()*(WORLD_W-160),y=80+r.nextFloat()*(WORLD_H-160);int z=zoneAt(x,y);
+                boolean near=false;for(Landmark q:points)if(Math.hypot(q.x-x,q.y-y)<135){near=true;break;}if(near)continue;
+                double pick=r.nextDouble();int type;
+                if(z==0)type=pick<0.40?0:pick<0.55?3:pick<0.72?1:pick<0.85?5:pick<0.94?4:6;
+                else if(z==1)type=pick<0.18?0:pick<0.36?2:pick<0.57?1:pick<0.72?5:pick<0.90?4:6;
+                else if(z==2)type=pick<0.30?0:pick<0.49?1:pick<0.65?3:pick<0.81?4:pick<0.91?5:6;
+                else if(z==3)type=pick<0.30?0:pick<0.50?3:pick<0.66?1:pick<0.80?5:pick<0.91?4:6;
+                else if(z==4)type=pick<0.24?0:pick<0.40?1:pick<0.62?4:pick<0.80?5:pick<0.92?6:2;
+                else type=pick<0.25?2:pick<0.44?4:pick<0.64?1:pick<0.80?5:pick<0.91?6:0;
+                float radius=type==0?28:type==1?22:type==2?25:type==4?26:type==6?33:14;
+                props.add(new Prop(x,y,type,radius,z,r.nextInt(5)));
+            }
         }
-        void victory(){
-            kills++;stageWins++;if(boss)regionBosses[region]++;else{regionKills[region]++;if(regionKills[region]%10==0){shards++;gold+=70;lootNotice="WAVE CACHE • "+regionName();lastLoot="+1 shard and 70 gold";lootNoticeUntil=System.currentTimeMillis()+4000;play(sWin);}}eventProgress=Math.min(10,eventProgress+1);gold+=boss?320+region*110:34+region*20;xp+=boss?720+level*55+region*120:48+level*8+region*25;
-            if(rng.nextInt(100)<22||boss){shards+=boss?2:1;}
-            if(rng.nextInt(100)<18){potions++;}
-            if(boss){bossKills++;play(sWin);gold+=100+region*25;maxHp+=8;attack+=2;shards+=2;lootNotice="BOSS RELIC CACHE";lastLoot="Guardian seal "+regionBosses[region]+"/3 secured";lootNoticeUntil=System.currentTimeMillis()+5000;if(region==5&&regionBosses[5]>=3){campaignComplete=true;lootNotice="ASCENSION COMPLETE";lastLoot="The Unmaker has fallen • endgame unlocked";lootNoticeUntil=System.currentTimeMillis()+10000;flashTicks=10;}}
-            while(xp>=xpNeed()){xp-=xpNeed();level++;skillPoints++;maxHp+=16;maxMana+=12;mana=maxMana;hp=actualMaxHp();attack+=2;defense++;play(sLevel);flashTicks=7;}
-            hp=Math.min(actualMaxHp(),hp+Math.max(8,actualMaxHp()/12));
-            spawnEnemy();save();
+        void loadGame(){
+            px=prefs.getFloat("px",520);py=prefs.getFloat("py",530);checkpointX=prefs.getFloat("cx",px);checkpointY=prefs.getFloat("cy",py);
+            level=Math.max(1,prefs.getInt("lv",1));xp=prefs.getInt("xp",0);xpNext=needXp();health=prefs.getInt("hp",100);maxHealth=prefs.getInt("mhp",100);health=Math.max(1,Math.min(maxHealth,health));coins=prefs.getInt("coin",80);kills=prefs.getInt("kills",0);relaysTotal=prefs.getInt("relays",0);openedCaches=prefs.getInt("caches",0);medkits=prefs.getInt("med",2);shotsFired=prefs.getInt("shotsF",0);shotsHit=prefs.getInt("shotsH",0);
+            currentGun=prefs.getInt("gun",0);for(int i=0;i<3;i++){mag[i]=prefs.getInt("mag"+i,i==0?12:0);reserve[i]=prefs.getInt("res"+i,i==0?96:0);gunUnlocked[i]=prefs.getBoolean("g"+i,i==0);}
+            for(int i=0;i<points.size();i++)points.get(i).used=prefs.getBoolean("p"+i,false);
+            for(int z=0;z<6;z++){relayCount[z]=prefs.getInt("relay"+z,0);zoneKills[z]=prefs.getInt("zk"+z,0);bossDefeated[z]=prefs.getBoolean("bd"+z,false);bossSpawned[z]=prefs.getBoolean("bs"+z,false);}
+            if(px<0||px>WORLD_W||py<0||py>WORLD_H){px=520;py=530;}
+            if(currentGun<0||currentGun>2||!gunUnlocked[currentGun])currentGun=0;
+            notification("Welcome back, survivor. The frontier is waiting.",3000);
         }
-        void spawnEnemy(){
-            boss=(regionKills[region]>0&&regionKills[region]%60==0&&regionBosses[region]<regionKills[region]/60);
-            if(boss){String[] bn={"THE HOLLOW KING","EMBER COLOSSUS","FROST MOTHER","DROWNED ADMIRAL","ASTRAL DRAGON","THE UNMAKER"};enemyName=bn[Math.floorMod(region,bn.length)]+" • SEAL "+(regionBosses[region]+1);enemyMax=900+level*65+region*220;enemyHp=enemyMax;play(sBoss);}
-            else{enemyType=rng.nextInt(7);enemyName=enemyLabel(enemyType);enemyMax=125+level*23+region*75+enemyType*19;enemyHp=enemyMax;}
-            heroX=105+rng.nextInt(32);enemyX=268+rng.nextInt(20);jumpUntil=0;nextEnemyAttack=System.currentTimeMillis()+1000;combo=0;save();
+        int needXp(){return 135+level*72+level*level*5;}
+        void save(){
+            SharedPreferences.Editor e=prefs.edit().putFloat("px",px).putFloat("py",py).putFloat("cx",checkpointX).putFloat("cy",checkpointY).putInt("lv",level).putInt("xp",xp).putInt("hp",health).putInt("mhp",maxHealth).putInt("coin",coins).putInt("kills",kills).putInt("relays",relaysTotal).putInt("caches",openedCaches).putInt("med",medkits).putInt("shotsF",shotsFired).putInt("shotsH",shotsHit).putInt("gun",currentGun);
+            for(int i=0;i<3;i++)e.putInt("mag"+i,mag[i]).putInt("res"+i,reserve[i]).putBoolean("g"+i,gunUnlocked[i]);
+            for(int i=0;i<points.size();i++)e.putBoolean("p"+i,points.get(i).used);
+            for(int z=0;z<6;z++)e.putInt("relay"+z,relayCount[z]).putInt("zk"+z,zoneKills[z]).putBoolean("bd"+z,bossDefeated[z]).putBoolean("bs"+z,bossSpawned[z]);
+            e.apply();
         }
-        void riftBurst(){
-            if(mana<25){combatNotice="NOT ENOUGH MANA";combatNoticeUntil=System.currentTimeMillis()+900;play(sClick);return;}
-            if(Math.abs(enemyX-heroX)>150){combatNotice="RIFT BURST OUT OF RANGE";combatNoticeUntil=System.currentTimeMillis()+900;play(sClick);return;}
-            mana-=25;hitTicks=10;int damage=(int)(actualAttack()*(1.75+strength*0.35));enemyHp-=damage;combatNotice="RIFT BURST  "+damage;combatNoticeUntil=System.currentTimeMillis()+1000;play(sSkill);flashTicks=6;
-            hp=Math.min(actualMaxHp(),hp+vitality*4);
-            if(enemyHp<=0)victory();save();invalidate();
+        void notification(String s,int ms){notice=s;noticeUntil=System.currentTimeMillis()+ms;}
+        void addXP(int amount){xp+=amount;while(xp>=needXp()){xp-=needXp();level++;maxHealth+=9;health=Math.min(maxHealth,health+34);notification("LEVEL UP  •  LEVEL "+level+"  •  MAX HP +9",2600);play(sLevel);for(int i=0;i<24;i++)particle(px,py,accent(currentZone()),2.8f,20); }xpNext=needXp();}
+        boolean regionUnlocked(int z){return z==0||bossDefeated[z-1];}
+        int relaysIn(int z){int n=0;for(Landmark q:points)if(q.zone==z&&q.type==0&&q.used)n++;return n;}
+        Landmark nearestLandmark(float x,float y,boolean actionableOnly){Landmark best=null;float bd=Float.MAX_VALUE;for(Landmark q:points){if(actionableOnly&&q.used&&q.type!=3)continue;float d=dist(x,y,q.x,q.y);if(d<bd){bd=d;best=q;}}return best;}
+        float dist(float x1,float y1,float x2,float y2){return (float)Math.hypot(x1-x2,y1-y2);}
+        void initAudio(){
+            try{
+                AudioAttributes aa=new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
+                soundPool=new SoundPool.Builder().setMaxStreams(10).setAudioAttributes(aa).build();
+                sPistol=tone("pistol",170,0.075,0.32,true);sRifle=tone("rifle",125,0.07,0.26,true);sShotgun=tone("shotgun",82,0.17,0.42,true);
+                sHit=tone("hit",250,0.10,0.25,true);sBoss=tone("boss",58,0.36,0.38,false);sLoot=tone("loot",680,0.21,0.26,false);sDash=tone("dash",310,0.14,0.22,true);sQuest=tone("quest",520,0.30,0.24,false);sEmpty=tone("empty",220,0.055,0.13,false);sReload=tone("reload",430,0.11,0.18,false);sLevel=tone("level",720,0.38,0.30,false);
+                makeAmbient();
+            }catch(Exception ignored){}
         }
-        void usePotion(){if(potions>0&&hp<actualMaxHp()){potions--;hp=Math.min(actualMaxHp(),hp+Math.max(45,actualMaxHp()*45/100));play(sHeal);save();}else play(sClick);}
-        void buyUpgrade(int type){
-            int cost=type==0?upgradeCost():type==1?100+armorTier*85:type==2?140+relicTier*120:45;
-            if(type==3){if(gold>=cost){gold-=cost;potions++;play(sBuy);save();}return;}
-            if(gold<cost){play(sClick);return;}
-            gold-=cost;if(type==0)weaponTier++;else if(type==1){armorTier++;maxHp+=15;hp+=15;}else{relicTier++;shards=Math.max(0,shards-1);}
-            play(sBuy);save();
+        int tone(String name,double freq,double sec,double vol,boolean noise)throws Exception{
+            int rate=22050,n=(int)(rate*sec);ByteBuffer b=ByteBuffer.allocate(44+n*2).order(ByteOrder.LITTLE_ENDIAN);
+            b.put(new byte[]{'R','I','F','F'});b.putInt(36+n*2);b.put(new byte[]{'W','A','V','E','f','m','t',' '});b.putInt(16);b.putShort((short)1);b.putShort((short)1);b.putInt(rate);b.putInt(rate*2);b.putShort((short)2);b.putShort((short)16);b.put(new byte[]{'d','a','t','a'});b.putInt(n*2);
+            for(int i=0;i<n;i++){double t=i/(double)rate,en=Math.min(1,t*90)*Math.pow(Math.max(0,1-t/sec),2.2);double wav=Math.sin(2*Math.PI*freq*t);if(noise)wav=wav*0.57+(rng.nextDouble()*2-1)*0.43;if(name.equals("shotgun"))wav=wav+0.35*Math.sin(2*Math.PI*freq*0.48*t);short v=(short)(Math.max(-1,Math.min(1,wav*en*vol))*32767);b.putShort(v);}
+            File f=new File(getCacheDir(),"af_"+name+".wav");FileOutputStream o=new FileOutputStream(f);o.write(b.array());o.close();return soundPool.load(f.getAbsolutePath(),1);
         }
-        void upgradeSkill(int type){
-            if(skillPoints<=0){play(sClick);return;}skillPoints--;
-            if(type==0){strength++;attack+=1;}
-            else if(type==1){vitality++;maxHp+=18;hp+=18;}
-            else if(type==2){focus++;crit+=2;maxMana+=10;mana+=10;}
-            else {crit+=3;}
-            play(sSkill);save();
+        void makeAmbient()throws Exception{
+            int rate=22050,n=rate*9;ByteBuffer b=ByteBuffer.allocate(44+n*2).order(ByteOrder.LITTLE_ENDIAN);b.put(new byte[]{'R','I','F','F'});b.putInt(36+n*2);b.put(new byte[]{'W','A','V','E','f','m','t',' '});b.putInt(16);b.putShort((short)1);b.putShort((short)1);b.putInt(rate);b.putInt(rate*2);b.putShort((short)2);b.putShort((short)16);b.put(new byte[]{'d','a','t','a'});b.putInt(n*2);
+            for(int i=0;i<n;i++){double t=i/(double)rate,env=Math.pow(Math.max(0,Math.sin(Math.PI*t/9)),0.4);double v=Math.sin(2*Math.PI*55*t)*0.18+Math.sin(2*Math.PI*82.4*t)*0.14+Math.sin(2*Math.PI*110*t+Math.sin(t*.35))*0.10+Math.sin(2*Math.PI*164.8*t)*0.06+Math.sin(2*Math.PI*41.2*t)*0.05*Math.sin(t*.7);b.putShort((short)(v*env*4500));}
+            File f=new File(getCacheDir(),"af_ambience.wav");FileOutputStream o=new FileOutputStream(f);o.write(b.array());o.close();ambient=new MediaPlayer();ambient.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());ambient.setDataSource(f.getAbsolutePath());ambient.prepare();ambient.setLooping(true);ambient.setVolume(0.19f,0.19f);ambient.start();
+        }
+        void play(int id){if(soundPool!=null&&id!=0)try{soundPool.play(id,1,1,1,0,0.94f+rng.nextFloat()*0.12f);}catch(Exception ignored){}}
+        void pauseAudio(){if(soundPool!=null)soundPool.autoPause();if(ambient!=null)try{if(ambient.isPlaying())ambient.pause();}catch(Exception ignored){}}
+        void resumeAudio(){if(soundPool!=null)soundPool.autoResume();if(ambient!=null)try{if(!ambient.isPlaying())ambient.start();}catch(Exception ignored){}}
+        void releaseAudio(){if(soundPool!=null){soundPool.release();soundPool=null;}if(ambient!=null){try{ambient.stop();}catch(Exception ignored){}ambient.release();ambient=null;}}
+
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);c=canvas;sx=getWidth()/(float)W;sy=getHeight()/(float)H;c.save();c.scale(sx,sy);
+            long now=System.currentTimeMillis();float dt=Math.max(0.001f,Math.min(0.05f,(now-lastUpdate)/1000f));lastUpdate=now;
+            updateGame(dt,now);
+            paint(col("#10131B"));c.drawRect(0,0,W,H,p);
+            float aimCamX=Math.max(0,Math.min(WORLD_W-W,px-W/2f)),aimCamY=Math.max(0,Math.min(WORLD_H-H,py-H/2f));camX=aimCamX;camY=aimCamY;
+            c.save();c.translate(-camX,-camY);
+            drawTerrain();drawRoads();drawProps(false);drawLandmarks();drawDrops();drawShots();drawMobs();drawPlayer();drawProps(true);drawWorldEdges();
+            c.restore();
+            drawHUD(now);drawControls(now);if(mapOpen)drawFullMap();if(now<damageFlashUntil){box(0,0,W,H,Color.argb(42,255,38,74),0);}
+            if(now<noticeUntil)drawNotice(now);
+            c.restore();postInvalidateDelayed(33);
+        }
+        void drawTerrain(){
+            int tile=80;int x0=(int)Math.floor(camX/tile)*tile,y0=(int)Math.floor(camY/tile)*tile;
+            for(int y=y0;y<camY+H+tile;y+=tile)for(int x=x0;x<camX+W+tile;x+=tile){
+                int z=zoneAt(x+tile/2f,y+tile/2f);int n=terrainNoise(x/tile,y/tile);int base=groundColor(z);int shadeAmt=(n%17)-8;int cc=shade(base,shadeAmt);paint(cc);c.drawRect(x,y,x+tile+1,y+tile+1,p);
+                if((n%7)==0){paint(Color.argb(80,Color.red(accent(z)),Color.green(accent(z)),Color.blue(accent(z))));c.drawOval(x+13+(n%35),y+11+(n%27),x+26+(n%35),y+16+(n%27),p);}
+                if((n%13)==0){paint(Color.argb(80,10,12,18));c.drawCircle(x+50,y+46,2.4f,p);}
+                if(z==2&&(n%4==0)){paint(Color.argb(45,196,235,255));c.drawLine(x+10,y+63,x+36,y+58,p);}
+                if(z==3&&(n%5==0)){paint(Color.argb(45,65,220,202));c.drawCircle(x+22,y+26,3,p);c.drawCircle(x+27,y+28,1.5f,p);}
+                if(z==1&&(n%8==0)){paint(Color.argb(70,255,138,64));c.drawCircle(x+39,y+37,2,p);}
+                if(z==4&&(n%6==0)){paint(Color.argb(85,198,153,255));Path d=new Path();d.moveTo(x+40,y+32);d.lineTo(x+43,y+37);d.lineTo(x+40,y+42);d.lineTo(x+37,y+37);d.close();c.drawPath(d,p);}
+            }
+            // subtle biome boundaries and trails through each zone
+            for(int x=ZONE;x<WORLD_W;x+=ZONE){line(x,0,x,WORLD_H,Color.argb(35,206,197,255),3);}
+            line(0,ZONE,WORLD_W,ZONE,Color.argb(35,206,197,255),3);
+        }
+        void drawRoads(){
+            for(int z=0;z<6;z++){
+                int row=z<3?0:1,gc=row==0?z:5-z;float ox=gc*ZONE,oy=row*ZONE,cx=ox+2000,cy=oy+2000;
+                road(ox+360,oy+430,ox+700,oy+780,z);road(ox+360,oy+430,ox+3260,oy+920,z);road(ox+360,oy+430,ox+850,oy+3150,z);road(ox+360,oy+430,ox+3200,oy+3180,z);road(ox+360,oy+430,cx,cy,z);
+                road(cx,cy,ox+2050,oy+630,z);road(cx,cy,ox+1960,oy+3250,z);
+            }
+        }
+        void road(float x1,float y1,float x2,float y2,int z){
+            if(Math.max(Math.abs((x1+x2)/2-camX),Math.abs((y1+y2)/2-camY))>1300)return;
+            float mx=(x1+x2)/2+(y2-y1)*0.055f,my=(y1+y2)/2-(x2-x1)*0.055f;Path path=new Path();path.moveTo(x1,y1);path.quadTo(mx,my,x2,y2);
+            paint(Color.argb(120,11,13,17));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(66);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);c.drawPath(path,p);
+            paint(Color.argb(115, z==2?125:132,z==2?151:112,z==2?158:81));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(45);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);c.drawPath(path,p);p.setStyle(Paint.Style.FILL);
+            paint(Color.argb(35,235,218,173));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setPathEffect(new DashPathEffect(new float[]{14,19},0));c.drawPath(path,p);p.setPathEffect(null);p.setStyle(Paint.Style.FILL);
+        }
+        boolean visible(float x,float y,float margin){return x>camX-margin&&x<camX+W+margin&&y>camY-margin&&y<camY+H+margin;}
+        void drawProps(boolean foreground){
+            long now=System.currentTimeMillis();
+            for(Prop q:props){if(!visible(q.x,q.y,75))continue;if((q.y>py+10)!=foreground)continue;
+                float x=q.x,y=q.y;int z=q.zone;int a=accent(z);
+                if(q.type==0){ // living tree
+                    glow(x,y+8,25,Color.argb(65,3,8,8),9);circle(x,y+2,8,col("#3B2E28"));circle(x-8,y-10,19,z==2?col("#52758C"):z==3?col("#1F6D69"):z==4?col("#51417A"):z==5?col("#572A4A"):z==1?col("#70503A"):col("#356448"));circle(x+8,y-16,17,z==2?col("#6F94A6"):z==3?col("#2A8078"):z==4?col("#675190"):z==5?col("#783451"):z==1?col("#915134"):col("#477A54"));circle(x-2,y-28,13,z==2?col("#7FA3B4"):z==3?col("#348F7F"):z==4?col("#785AA0"):z==5?col("#8A4261"):z==1?col("#AE6640"):col("#56895C"));circle(x-7,y-21,4,Color.argb(100,211,240,190));circle(x+13,y-4,3,Color.argb(90,245,220,173));
+                }else if(q.type==1){ // rocks/crystals
+                    glow(x,y,18,Color.argb(55,Color.red(a),Color.green(a),Color.blue(a)),7);
+                    Path rock=new Path();rock.moveTo(x-q.r,y+9);rock.lineTo(x-q.r*.8f,y-9);rock.lineTo(x-4,y-q.r);rock.lineTo(x+q.r*.7f,y-q.r*.7f);rock.lineTo(x+q.r,y+7);rock.close();paint(z==2?col("#6A879B"):z==4?col("#655184"):z==5?col("#692C50"):col("#484957"));c.drawPath(rock,p);line(x-4,y-q.r+4,x+q.r*.55f,y-2,Color.argb(110,214,218,227),2);
+                    if(z==4){Path cr=new Path();cr.moveTo(x+2,y-8);cr.lineTo(x+8,y-24);cr.lineTo(x+12,y-7);cr.close();paint(a);c.drawPath(cr,p);}
+                }else if(q.type==2){ // dead tree
+                    line(x,y+15,x+q.variant*2-4,y-22,col("#493C36"),8);line(x,y-3,x-17,y-18,col("#57433A"),5);line(x-2,y-8,x+18,y-25,col("#4E3C37"),5);line(x,y+5,x+14,y+4,col("#493A32"),4);
+                    if(z==5){circle(x-14,y-19,4,a);circle(x+18,y-25,4,a);}
+                }else if(q.type==3){circle(x,y,15,z==2?col("#5F7784"):col("#2E553A"));circle(x-5,y-5,9,z==2?col("#73939E"):col("#487044"));circle(x+8,y+3,8,z==2?col("#496978"):col("#315939"));}
+                else if(q.type==4){ // ruined stone / crystal cluster
+                    box(x-24,y-17,x+19,y+19,col("#20252D"),2);box(x-19,y-23,x+14,y+9,z==4?col("#5A4A79"):z==3?col("#315D5C"):col("#51505C"),2);line(x-14,y-15,x+8,y-15,Color.argb(110,205,212,219),2);line(x+7,y-14,x+7,y+3,Color.argb(100,208,216,216),2);
+                    if(z==4||z==5){Path cp=new Path();cp.moveTo(x-2,y-20);cp.lineTo(x+6,y-39);cp.lineTo(x+11,y-17);cp.close();paint(a);c.drawPath(cp,p);glow(x+4,y-24,5,a,7);}
+                }else if(q.type==5){box(x-11,y-15,x+12,y+14,col("#24262E"),4);box(x-9,y-12,x+10,y+9,z==1?col("#9A512F"):col("#73503B"),3);box(x-12,y-17,x+13,y-10,col("#C29A55"),2);line(x,y-8,x,y+7,col("#D8BA6A"),2);}
+                else{ // ruined pillar
+                    box(x-21,y-25,x+22,y+19,col("#171C29"),3);box(x-17,y-31,x+18,y+10,z==5?col("#6B2750"):col("#41485B"),3);line(x-11,y-20,x+11,y-20,a,2);line(x+5,y-15,x+5,y+3,a,2);
+                }
+            }
+        }
+        void drawLandmarks(){
+            long t=System.currentTimeMillis();
+            for(Landmark q:points){if(!visible(q.x,q.y,100))continue;float pulse=(float)(0.82+0.18*Math.sin(t/260.0+q.id));int a=accent(q.zone);boolean active=!q.used&&(q.type!=2||relaysIn(q.zone)>=4&&regionUnlocked(q.zone))&&(q.type!=0||regionUnlocked(q.zone));
+                if(q.type==0){glow(q.x,q.y,25*pulse,active?a:col("#48505B"),9);circle(q.x,q.y+10,20,Color.argb(100,0,0,0));circle(q.x,q.y,13,col("#1F2932"));circle(q.x,q.y,8,active?a:col("#59636E"));line(q.x,q.y-26,q.x,q.y+8,active?col("#C8F9E2"):col("#717887"),3);circle(q.x,q.y-27,5,active?col("#D1FFE8"):col("#777B8C"));circle(q.x,ySafe(q.y-27),2,col("#FFFFFF"));
+                    for(int k=0;k<3;k++){paint(Color.argb(active?115:35,Color.red(a),Color.green(a),Color.blue(a)));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.4f);float rr=24+k*9+(float)Math.sin(t/300.0+k)*3;c.drawCircle(q.x,q.y,rr,p);p.setStyle(Paint.Style.FILL);}
+                }else if(q.type==1){glow(q.x,q.y,26*pulse,a,9);box(q.x-27,q.y-10,q.x+27,q.y+21,col("#171A25"),4);box(q.x-24,q.y-15,q.x+24,q.y+6,q.used?col("#55545C"):col("#76503B"),6);stroke(q.x-24,q.y-15,q.x+24,q.y+6,q.used?col("#777783"):a,6,2);box(q.x-4,q.y-11,q.x+4,q.y+19,col("#DDB968"),1);circle(q.x,q.y-4,3,a);}
+                else if(q.type==2){glow(q.x,q.y,39*pulse,a,14);paint(Color.argb(130,Color.red(a),Color.green(a),Color.blue(a)));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(5);c.drawCircle(q.x,q.y,38,p);p.setStyle(Paint.Style.FILL);Path tri=new Path();tri.moveTo(q.x,q.y-33);tri.lineTo(q.x+29,q.y+20);tri.lineTo(q.x-29,q.y+20);tri.close();paint(col("#291D38"));c.drawPath(tri,p);stroke(q.x-16,q.y-17,q.x+16,q.y+17,a,2,2);line(q.x-14,q.y+12,q.x+14,q.y-12,a,2);circle(q.x,q.y,a==0?2:4,a);}
+                else{glow(q.x,q.y,30,a,12);box(q.x-30,q.y-15,q.x+30,q.y+25,col("#1B2630"),7);Path tent=new Path();tent.moveTo(q.x-39,q.y-6);tent.lineTo(q.x,q.y-37);tent.lineTo(q.x+39,q.y-6);tent.close();paint(col("#647A76"));c.drawPath(tent,p);line(q.x,q.y-33,q.x,q.y+17,col("#C9B880"),3);circle(q.x+21,q.y+12,8,col("#FFAE57"));glow(q.x+21,q.y+12,10,col("#FF943A"),8);}
+            }
+        }
+        float ySafe(float y){return y;}
+        void drawWorldEdges(){
+            // Tiny rune gate markers show progression locks on region borders.
+            for(int i=1;i<3;i++){float x=i*ZONE;if(visible(x,2000,60)){line(x,0,x,WORLD_H,Color.argb(20,225,225,255),3);gate(x,2000,regionUnlocked(i));gate(x,6000,regionUnlocked(5-i));}}
+            if(visible(6000,ZONE,60)){gate(10000,ZONE,regionUnlocked(3));}
+            line(0,ZONE,WORLD_W,ZONE,Color.argb(20,235,235,255),3);
+        }
+        void gate(float x,float y,boolean open){if(Math.abs(x-camX)>W+80||Math.abs(y-camY)>H+80)return;int co=open?col("#65DDB1"):col("#EF6387");glow(x,y,32,co,15);line(x-25,y-22,x-25,y+22,co,4);line(x+25,y-22,x+25,y+22,co,4);for(int i=0;i<5;i++)circle(x-14+i*7,y+(float)Math.sin(System.currentTimeMillis()/150.0+i)*3,2,co);}
+
+        void drawDrops(){
+            long now=System.currentTimeMillis();
+            for(Drop d:drops){if(!visible(d.x,d.y,45))continue;float bob=(float)Math.sin(now/180.0+d.x)*3;int a=accent(d.zone);glow(d.x,d.y,15,a,7);
+                if(d.type==0){circle(d.x,d.y+bob,7,col("#E9C46A"));circle(d.x-2,d.y-2+bob,2,col("#FFF0AD"));}
+                else if(d.type==1){box(d.x-9,d.y-10+bob,d.x+9,d.y+10+bob,col("#315F93"),4);line(d.x,d.y-6+bob,d.x,d.y+6+bob,col("#A9E8FF"),2);line(d.x-5,d.y+bob,d.x+5,d.y+bob,col("#A9E8FF"),2);}
+                else if(d.type==2){glow(d.x,d.y,18,col("#64DD98"),10);circle(d.x,d.y+bob,8,col("#5CCB87"));centre("+",d.x,d.y+3+bob,12,Color.WHITE,true);}
+                else if(d.type==3){Path shard=new Path();shard.moveTo(d.x,d.y-12+bob);shard.lineTo(d.x+8,d.y+bob);shard.lineTo(d.x,d.y+12+bob);shard.lineTo(d.x-7,d.y+bob);shard.close();paint(col("#D0A5FF"));c.drawPath(shard,p);glow(d.x,d.y,15,col("#B58AFF"),7);}
+                else{if(caseArt[d.value%3]!=null)sprite(caseArt[d.value%3],d.x-17,d.y-18+bob,34,36);else box(d.x-14,d.y-11,d.x+14,d.y+12,col("#AE65E8"),3);text(d.value==1?"SMG":"12G",d.x-14,d.y+24+bob,8,Color.WHITE,true);}
+            }
+        }
+        void drawShots(){
+            for(Shot b:shots){if(!visible(b.x,b.y,20))continue;float len=b.hostile?13:21;float mag=(float)Math.hypot(b.vx,b.vy);float ex=b.x-b.vx/(mag+0.01f)*len,ey=b.y-b.vy/(mag+0.01f)*len;line(ex,ey,b.x,b.y,b.hostile?col("#FF7D81"):col("#FFDA86"),b.hostile?3:4);glow(b.x,b.y,4,b.hostile?col("#FF555F"):col("#FFBA56"),6);}
+        }
+        void drawMobs(){
+            long now=System.currentTimeMillis();
+            for(Mob m:mobs){if(!m.alive||!visible(m.x,m.y,90))continue;float bob=(float)Math.sin(now/160.0+m.x)*2;int a=accent(m.zone);circle(m.x,m.y+12,m.big?32:17,Color.argb(110,0,0,0));
+                if(m.big&&bossArt[m.zone]!=null){sprite(bossArt[m.zone],m.x-42,m.y-60+bob,84,110);glow(m.x,m.y-22,m.hp/(float)m.maxHp*12+5,a,8);}
+                else if(!m.big&&monsterArt[m.type%7]!=null&&false){sprite(monsterArt[m.type%7],m.x-23,m.y-30+bob,46,60);}
+                else drawMonster(m,bob,now);
+                if(m.big||m.hp<m.maxHp){float w=m.big?100:35,top=m.y-(m.big?69:37);box(m.x-w/2-2,top-2,m.x+w/2+2,top+7,col("#11131B"),3);box(m.x-w/2,top,m.x+w/2,top+5,col("#5B2937"),2);box(m.x-w/2,top,m.x-w/2+w*Math.max(0,m.hp/(float)m.maxHp),top+5,m.big?col("#FE567E"):col("#E3A26B"),2);}
+                if(m.big){centre(new String[]{"THE MOSS TITAN","CINDER BRUTE","FROST QUEEN","DROWNED WARDEN","STAR EATER","THE UNMAKER"}[m.zone],m.x,m.y-78,9,col("#FFD7ED"),true);}
+            }
+        }
+        void drawMonster(Mob m,float bob,long now){
+            float x=m.x,y=m.y+bob;int base=m.type==0?col("#4B8760"):m.type==1?col("#A45A46"):m.type==2?col("#467F9A"):m.type==3?col("#55466F"):m.type==4?col("#8C613D"):m.type==5?col("#536A7A"):col("#743E6F");
+            glow(x,y,17,Color.argb(75,Color.red(accent(m.zone)),Color.green(accent(m.zone)),Color.blue(accent(m.zone))),9);
+            if(m.type==0){circle(x-9,y+4,8,base);circle(x+8,y+4,8,base);circle(x,y-5,13,base);circle(x-8,y-13,6,base);circle(x+8,y-13,6,base);circle(x-4,y-5,2,col("#FFDB8C"));circle(x+4,y-5,2,col("#FFDB8C"));}
+            else if(m.type==1){Path body=new Path();body.moveTo(x-17,y+4);body.lineTo(x-12,y-12);body.lineTo(x-4,y-20);body.lineTo(x+8,y-15);body.lineTo(x+18,y-1);body.lineTo(x+11,y+13);body.lineTo(x-10,y+13);body.close();paint(base);c.drawPath(body,p);line(x-10,y-7,x-17,y-20,col("#BC8A70"),4);line(x+10,y-7,x+17,y-20,col("#BC8A70"),4);circle(x-5,y-6,2,col("#FFB46B"));circle(x+5,y-6,2,col("#FFB46B"));}
+            else if(m.type==2){Path body=new Path();body.moveTo(x,y-20);body.lineTo(x+16,y-8);body.lineTo(x+11,y+11);body.lineTo(x,y+17);body.lineTo(x-11,y+11);body.lineTo(x-16,y-8);body.close();paint(base);c.drawPath(body,p);circle(x,y-3,7,col("#9DEBFA"));circle(x-4,y-4,2,Color.WHITE);circle(x+4,y-4,2,Color.WHITE);}
+            else if(m.type==3){circle(x,y,17,base);Path horns=new Path();horns.moveTo(x-10,y-8);horns.lineTo(x-19,y-24);horns.lineTo(x-6,y-17);horns.close();horns.moveTo(x+10,y-8);horns.lineTo(x+19,y-24);horns.lineTo(x+6,y-17);horns.close();paint(col("#B6A7CE"));c.drawPath(horns,p);line(x-5,y-2,x-2,y-2,Color.WHITE,3);line(x+3,y-2,x+6,y-2,Color.WHITE,3);}
+            else if(m.type==4){circle(x,y,15,base);circle(x,y-3,8,col("#C7A06C"));line(x-11,y+5,x-19,y+13,col("#BD8960"),4);line(x+11,y+5,x+19,y+13,col("#BD8960"),4);circle(x-3,y-5,2,col("#211823"));circle(x+3,y-5,2,col("#211823"));}
+            else if(m.type==5){box(x-16,y-15,x+16,y+15,base,7);stroke(x-16,y-15,x+16,y+15,col("#9ACDDA"),7,2);line(x-9,y-7,x+9,y+7,col("#9ACDDA"),2);line(x+9,y-7,x-9,y+7,col("#9ACDDA"),2);circle(x,y,4,col("#F1D58F"));}
+            else{circle(x,y,15,base);for(int i=0;i<5;i++){float an=i*1.256f+(float)Math.sin(now/230.0)*0.2f;circle(x+(float)Math.cos(an)*13,y+(float)Math.sin(an)*13,5,col("#B66AC5"));}circle(x,y,8,col("#24152E"));circle(x-3,y-2,2,col("#FF8CDB"));circle(x+3,y-2,2,col("#FF8CDB"));}
+        }
+        void drawPlayer(){
+            long now=System.currentTimeMillis();float bob=(float)Math.sin(now/135.0)*1.7f;circle(px,py+15,19,Color.argb(115,0,0,0));
+            glow(px,py,22,Color.argb(45,127,217,255),11);
+            float faceX=(float)Math.cos(aimAngle),faceY=(float)Math.sin(aimAngle);
+            // body and backpack, shadow stays under the feet
+            circle(px,py+7,13,col("#22323B"));box(px-12,py-10+bob,px+12,py+13+bob,col("#344C5C"),7);
+            box(px-9,py-9+bob,px-4,py+9+bob,col("#72909B"),2);box(px+4,py-9+bob,px+9,py+9+bob,col("#263944"),2);
+            circle(px,py-7+bob,11,col("#C2A48A"));circle(px-3,py-8+bob,2,col("#45332D"));circle(px+4,py-8+bob,2,col("#45332D"));
+            Path hood=new Path();hood.moveTo(px-11,py-10+bob);hood.quadTo(px,py-25+bob,px+11,py-10+bob);hood.lineTo(px+8,py-4+bob);hood.lineTo(px-8,py-4+bob);hood.close();paint(col("#202433"));c.drawPath(hood,p);
+            // arm follows the aim direction, creating a readable top-down gun pose
+            float gx=px+faceX*15,gy=py+faceY*15;line(px+faceX*3,py+faceY*3,gx,gy,col("#A78E80"),7);
+            float endX=gx+faceX*21,endY=gy+faceY*21;line(gx,gy,endX,endY,col("#171A25"),6);line(gx,gy,endX,endY,col("#8296A4"),2);
+            if(now<firePressedAt+95){glow(endX+faceX*7,endY+faceY*7,8,col("#FFD477"),10);circle(endX+faceX*7,endY+faceY*7,4,col("#FFF4C0"));}
+            if(now<invincibleUntil){for(int k=0;k<2;k++){paint(Color.argb(110,113,225,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(px,py,22+k*4,p);p.setStyle(Paint.Style.FILL);}}
+            // boots give the little survivor a clear direction silhouette
+            box(px-11,py+7+bob,px-3,py+16+bob,col("#151923"),3);box(px+3,py+7+bob,px+11,py+16+bob,col("#151923"),3);
+        }
+
+        void drawHUD(long now){
+            // compact survivor card
+            box(12,10,226,77,Color.argb(220,12,17,25),11);stroke(12,10,226,77,Color.argb(160,119,160,180),11,1);
+            text("FRONTIER SURVIVOR",24,28,9,col("#ADC2CA"),true);text("LV "+level+"   "+zoneName(currentZone()),24,45,11,Color.WHITE,true);
+            box(24,53,210,60,col("#30323A"),4);box(24,53,24+186*health/(float)maxHealth,60,health>35?col("#60D69B"):col("#FF657B"),4);text(health+"/"+maxHealth+" HP",24,72,9,Color.WHITE,true);
+            // main expedition objective
+            box(237,10,529,77,Color.argb(210,12,17,25),10);text("FIELD OBJECTIVE",249,28,9,col("#D3B4FF"),true);
+            int z=currentZone(),n=relaysIn(z);String target;
+            if(!regionUnlocked(z))target="THE REGION IS SEALED";
+            else if(n<4)target="Activate signal relays  •  "+n+"/4";
+            else if(!bossDefeated[z])target=bossSpawned[z]?"HUNT THE GUARDIAN":"Approach the Guardian Altar";
+            else target=z==5?"THE FRONTIER IS YOURS • Keep exploring":"Zone secured • Travel to the next region";
+            text(target,249,47,11,Color.WHITE,true);text("KILLS "+kills+"   •   RELAYS "+relaysTotal+"/24   •   CACHES "+openedCaches+"/12",249,64,8,col("#AAB7C6"),true);
+            // weapon selector
+            box(539,10,788,77,Color.argb(220,12,17,25),10);
+            for(int i=0;i<3;i++){float x=548+i*79;int width=73;int co=currentGun==i?col("#8D69DB"):col("#293340");box(x,17,x+width,68,co,8);if(!gunUnlocked[i]){centre("LOCKED",x+width/2,38,8,col("#8C97A8"),true);centre(new String[]{"PISTOL","SMG","SHOTGUN"}[i],x+width/2,53,8,col("#A6B4C0"),true);}else{centre(new String[]{"▰","≋","✣"}[i],x+width/2,35,14,col("#E8D39A"),true);centre(new String[]{"PISTOL","SMG","12G SHOT"}[i],x+width/2,49,8,Color.WHITE,true);centre(mag[i]+"/"+reserve[i],x+width/2,61,8,col("#C5DBDE"),true);}}
+            drawMiniMap(806,10,142,86);
+            // current interaction prompt floats near lower edge
+            Landmark near=nearestLandmark(px,py,true);if(near!=null&&dist(px,py,near.x,near.y)<155){String t=poiPrompt(near);box(285,427,675,464,Color.argb(220,11,16,25),8);centre(t,480,443,10,Color.WHITE,true);centre("Press INTERACT near the marker",480,456,8,col("#9FB4C1"),false);}
+            if(reloadUntil>now) {box(398,384,562,410,Color.argb(225,10,12,18),6);centre("RELOADING",480,402,10,col("#F3D58D"),true);}
+            if(currentGun==0&&mag[0]<=0&&reserve[0]<=0)text("FIND AMMO",426,421,9,col("#FF7A89"),true);
+        }
+        String poiPrompt(Landmark q){
+            if(q.type==0)return q.used?"RELAY STABILIZED":"INTERACT  •  "+q.name;
+            if(q.type==1)return q.used?"CACHE EMPTY":"INTERACT  •  "+q.name;
+            if(q.type==2)return bossDefeated[q.zone]?"GUARDIAN DEFEATED":relaysIn(q.zone)<4?"ALTAR SEALED  •  RELAYS "+relaysIn(q.zone)+"/4":!regionUnlocked(q.zone)?"SEALED BY THE FRONTIER":"INTERACT  •  SUMMON GUARDIAN";
+            return "INTERACT  •  "+q.name+"  •  REST / SUPPLY";
+        }
+        void drawMiniMap(float x,float y,float w,float h){
+            box(x,y,x+w,y+h,Color.argb(230,7,12,19),8);stroke(x,y,x+w,y+h,col("#6A7189"),8,1);
+            float sc=Math.min((w-12)/WORLD_W,(h-12)/WORLD_H),mw=WORLD_W*sc,mh=WORLD_H*sc,ox=x+(w-mw)/2,oy=y+(h-mh)/2;
+            for(int i=0;i<6;i++){int row=i<3?0:1,gc=row==0?i:5-i;box(ox+gc*ZONE*sc,oy+row*ZONE*sc,ox+(gc+1)*ZONE*sc,oy+(row+1)*ZONE*sc,Color.argb(bossDefeated[i]?230:130,Color.red(groundColor(i)),Color.green(groundColor(i)),Color.blue(groundColor(i))),0);}
+            for(Landmark q:points)if(q.type==0&&!q.used)circle(ox+q.x*sc,oy+q.y*sc,1.6f,accent(q.zone));
+            for(Mob m:mobs)if(!m.big&&m.alive&&dist(m.x,m.y,px,py)<800)circle(ox+m.x*sc,oy+m.y*sc,1.7f,col("#FF6875"));
+            circle(ox+px*sc,oy+py*sc,3.3f,col("#FFFFFF"));circle(ox+px*sc,oy+py*sc,5,col("#8CDBFF"));
+            if(mapOpen){text("WORLD MAP",x+5,y+h+13,8,col("#D7D0EE"),true);}
+        }
+        void drawControls(long now){
+            // Left virtual movement stick
+            circle(105,430,69,Color.argb(74,210,231,243));circle(105,430,56,Color.argb(62,15,23,35));paint(Color.argb(120,222,231,242));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(105,430,69,p);p.setStyle(Paint.Style.FILL);
+            float mx=movePid>=0?moveTouchX:105,my=movePid>=0?moveTouchY:430;float dx=mx-105,dy=my-430,dl=(float)Math.hypot(dx,dy);if(dl>48){mx=105+dx*48/dl;my=430+dy*48/dl;}circle(mx,my,26,Color.argb(155,148,180,197));circle(mx-5,my-7,7,Color.argb(100,255,255,255));
+            centre("MOVE",105,511,9,Color.argb(170,240,247,255),true);
+            // Aim control
+            circle(770,430,58,Color.argb(64,211,232,252));paint(Color.argb(115,210,231,245));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(770,430,58,p);p.setStyle(Paint.Style.FILL);
+            float ax=aimPid>=0?aimTouchX:770,ay=aimPid>=0?aimTouchY:430,adx=ax-770,ady=ay-430,adl=(float)Math.hypot(adx,ady);if(adl>41){ax=770+adx*41/adl;ay=430+ady*41/adl;}circle(ax,ay,22,Color.argb(165,211,224,239));line(770,430,ax,ay,Color.argb(110,255,255,255),2);centre("AIM",770,511,9,Color.argb(175,240,247,255),true);
+            // Fire / dodge / reload / interact
+            circle(875,337,48,Color.argb(firing?235:175,139,54,65));paint(Color.argb(220,255,178,153));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawCircle(875,337,48,p);p.setStyle(Paint.Style.FILL);circle(875,337,34,col("#7E333F"));centre("FIRE",875,334,13,Color.WHITE,true);centre("HOLD",875,349,7,col("#FFE0D5"),true);
+            circle(674,340,33,Color.argb(now<dashReadyAt?85:170,61,133,183));stroke(641,307,707,373,now<dashReadyAt?col("#516B7A"):col("#9DE9FF"),33,2);centre(now<dashReadyAt?"…":"DASH",674,339,10,Color.WHITE,true);centre(now<dashReadyAt?Math.max(0,(dashReadyAt-now)/1000f)+"s":"ROLL",674,352,7,col("#CBEFFF"),true);
+            circle(859,447,27,Color.argb(170,171,137,74));stroke(832,420,886,474,col("#EAD59E"),27,2);centre("R",859,451,15,Color.WHITE,true);
+            circle(925,447,27,Color.argb(180,59,143,107));stroke(898,420,952,474,col("#A3F0C9"),27,2);centre("USE",925,450,10,Color.WHITE,true);
+            box(367,482,593,523,Color.argb(190,12,18,26),7);centre("HP "+health+"/"+maxHealth+"    MED "+medkits+"    "+new String[]{"PISTOL","SMG","SHOTGUN"}[currentGun],480,498,9,Color.WHITE,true);centre("TAP R TO RELOAD  •  TAP USE AT RELAYS / CHESTS",480,512,7.4f,col("#B7C9D6"),true);
+        }
+        void drawNotice(long now){
+            float alpha=Math.min(1,(noticeUntil-now)/300f);box(267,89,693,127,Color.argb((int)(220*alpha),11,16,25),8);stroke(267,89,693,127,Color.argb((int)(150*alpha),129,103,178),8,1);centre(notice,480,112,12,Color.WHITE,true);
+        }
+        void drawFullMap(){
+            box(0,0,W,H,Color.argb(235,4,7,12),0);
+            centre("THE SHATTERED FRONTIER",480,40,20,Color.WHITE,true);centre("Explore, stabilise relays, open supply caches and defeat each regional guardian.",480,59,10,col("#B4C3D1"),false);
+            float sc=0.066f,ww=WORLD_W*sc,hh=WORLD_H*sc,ox=(W-ww)/2,oy=82;
+            for(int i=0;i<6;i++){int row=i<3?0:1,gc=row==0?i:5-i;float l=ox+gc*ZONE*sc,t=oy+row*ZONE*sc;box(l,t,l+ZONE*sc,t+ZONE*sc,groundColor(i),0);stroke(l,t,l+ZONE*sc,t+ZONE*sc,accent(i),0,2);centre(zoneName(i),l+ZONE*sc/2,t+22,10,Color.WHITE,true);}
+            for(Landmark q:points){int co=q.type==0?(q.used?col("#5D6878"):col("#7FE6BA")):q.type==1?(q.used?col("#5D6878"):col("#F1CD75")):q.type==2?(bossDefeated[q.zone]?col("#687780"):col("#FF698C")):col("#F1A460");circle(ox+q.x*sc,oy+q.y*sc,q.type==2?5:3,co);}
+            for(Mob m:mobs)if(m.alive)circle(ox+m.x*sc,oy+m.y*sc,m.big?5:2,col("#FF667E"));
+            circle(ox+px*sc,oy+py*sc,7,Color.WHITE);circle(ox+px*sc,oy+py*sc,12,col("#8ADFFF"));
+            box(270,493,690,526,Color.argb(220,22,30,42),7);centre("Tap anywhere to close map  •  White marker = you  •  Green = relay  •  Gold = cache  •  Pink = guardian",480,509,9,Color.WHITE,true);
+        }
+
+        void updateGame(float dt,long now){
+            if(movePid>=0){float dx=moveTouchX-105,dy=moveTouchY-430,dl=(float)Math.hypot(dx,dy);if(dl>12){moveX=dx/Math.max(48,dl);moveY=dy/Math.max(48,dl);}else{moveX=0;moveY=0;}}else{moveX=0;moveY=0;}
+            if(aimPid>=0){float dx=aimTouchX-770,dy=aimTouchY-430,dl=(float)Math.hypot(dx,dy);if(dl>10){aimX=dx/Math.max(41,dl);aimY=dy/Math.max(41,dl);aimAngle=(float)Math.atan2(aimY,aimX);aimActive=true;}}else{aimActive=false;aimX=0;aimY=0;}
+            boolean dashing=now<dashUntil;float speed=dashing?565:210;
+            movePlayer(moveX*speed*dt,moveY*speed*dt);
+            if(firing&&reloadUntil<=now)fireGun(now);
+            if(reloadUntil>0&&reloadUntil<=now){finishReload();reloadUntil=0;}
+            updateMobs(dt,now);updateShots(dt,now);updateDrops(now);updateSparks(dt);
+            if(mobs.size()<12&&now-lastSpawn>1700&&now>dashUntil){spawnMobAroundPlayer(false);lastSpawn=now;}
+            if(now-lastSave>2400){save();lastSave=now;}
+            // Periodic bounty keeps exploration rewarding beyond the primary objectives.
+            if(kills>0&&kills%25==0&&playerDamage<kills){playerDamage=kills;coins+=120;medkits++;notification("BOUNTY COMPLETE  •  +120 CREDITS  •  +1 MEDKIT",3000);play(sQuest);save();}
+            Landmark q=activeObjective(currentZone());if(q!=null){float d=dist(px,py,q.x,q.y);objectiveText=q.name+"  •  "+(int)d+"m";}else objectiveText="The frontier is secured. Explore for supplies.";
+        }
+        void movePlayer(float dx,float dy){
+            if(dx==0&&dy==0)return;float nx=Math.max(28,Math.min(WORLD_W-28,px+dx)),ny=Math.max(28,Math.min(WORLD_H-28,py+dy));
+            int oldZone=zoneAt(px,py),newZone=zoneAt(nx,ny);
+            if(newZone!=oldZone&&!regionUnlocked(newZone)){notification("SIGNAL SEAL BLOCKS THIS ROUTE",850);return;}
+            if(!collides(nx,py))px=nx;if(!collides(px,ny))py=ny;
+        }
+        boolean collides(float x,float y){
+            for(Prop q:props){if(!q.solid||Math.abs(q.x-x)>q.r+20||Math.abs(q.y-y)>q.r+20)continue;if(dist(x,y,q.x,q.y)<q.r+15)return true;}
+            for(Landmark q:points)if(q.type==3&&dist(x,y,q.x,q.y)<24)return true;
+            return false;
+        }
+        Landmark activeObjective(int z){
+            if(!regionUnlocked(z))return null;
+            for(Landmark q:points)if(q.zone==z&&q.type==0&&!q.used)return q;
+            if(!bossDefeated[z])for(Landmark q:points)if(q.zone==z&&q.type==2&&!q.used)return q;
+            if(z<5&&bossDefeated[z])return null;return null;
+        }
+        void spawnMobAroundPlayer(boolean big){
+            int z=currentZone();if(!regionUnlocked(z))z=0;
+            float x=px,y=py;boolean ok=false;
+            for(int tries=0;tries<28;tries++){double a=rng.nextDouble()*Math.PI*2;float rad=440+rng.nextFloat()*310;x=px+(float)Math.cos(a)*rad;y=py+(float)Math.sin(a)*rad;if(x<60||y<60||x>WORLD_W-60||y>WORLD_H-60)continue;if(zoneAt(x,y)!=z||collides(x,y))continue;ok=true;break;}
+            if(!ok){x=Math.max(100,Math.min(WORLD_W-100,px+360));y=Math.max(100,Math.min(WORLD_H-100,py+290));}
+            int type=rng.nextInt(7);Mob m=new Mob(x,y,type,z,big);mobs.add(m);
+        }
+        void spawnGuardian(int z){
+            for(Mob m:mobs)if(m.big&&m.zone==z&&m.alive)return;
+            Landmark altar=null;for(Landmark q:points)if(q.zone==z&&q.type==2){altar=q;break;}
+            float x=altar==null?px+90:altar.x+80,y=altar==null?py:altar.y+30;
+            mobs.add(new Mob(x,y,z,z,true));notification("GUARDIAN AWAKENED  •  "+zoneName(z),3500);play(sBoss);
+        }
+        void updateMobs(float dt,long now){
+            for(int i=mobs.size()-1;i>=0;i--){Mob m=mobs.get(i);if(!m.alive){mobs.remove(i);continue;}
+                float dx=px-m.x,dy=py-m.y,d=(float)Math.hypot(dx,dy);if(!m.big&&d>1180){mobs.remove(i);continue;}
+                if(now<m.stunUntil)continue;
+                m.angle=(float)Math.atan2(dy,dx);
+                if(m.type==2&&!m.big&&d<350&&d>160){
+                    m.x-=dx/(d+0.01f)*m.speedSafe()*dt;m.y-=dy/(d+0.01f)*m.speedSafe()*dt;
+                    if(now>m.nextAttack){m.nextAttack=now+1750;shootEnemy(m,7+m.zone*2,260,0);play(sHit);}
+                }else if(m.type==5&&!m.big&&d<250&&d>95){
+                    float vx=-dy/(d+0.01f),vy=dx/(d+0.01f);m.x+=vx*75*dt;m.y+=vy*75*dt;if(now>m.nextAttack){m.nextAttack=now+1450;shootEnemy(m,8+m.zone*2,300,0);}
+                }else if(d>(m.big?61:28)){
+                    float speed=(m.big?62:m.type==1?145:m.type==4?110:m.type==6?82:78)*(1+m.zone*0.055f);
+                    if(!collides(m.x+dx/(d+0.01f)*speed*dt,m.y))m.x+=dx/(d+0.01f)*speed*dt;
+                    if(!collides(m.x,m.y+dy/(d+0.01f)*speed*dt))m.y+=dy/(d+0.01f)*speed*dt;
+                }else if(now>m.nextAttack&&now>invincibleUntil){
+                    m.nextAttack=now+(m.big?720:m.type==1?520:900);int hurt=m.damage;
+                    if(now<dashUntil){notification("DODGE!",500);}else{health-=hurt;lastDamageAt=now;damageFlashUntil=now+160;invincibleUntil=now+450;notification(m.big?"GUARDIAN STRIKE  -"+hurt:"HIT  -"+hurt,650);play(sHit);if(health<=0)playerDown();}
+                }
+                if(m.big&&d<450&&now>m.nextAttack&&now>invincibleUntil){m.nextAttack=now+1400;shootEnemy(m,12+m.zone*3,265,-0.22f);shootEnemy(m,12+m.zone*3,265,0);shootEnemy(m,12+m.zone*3,265,0.22f);}
+            }
+        }
+        float speedSafe(){return 40;}
+
+        void shootEnemy(Mob m,int damage,float speed,float spread){float a=m.angle+spread;shots.add(new Shot(m.x+(float)Math.cos(a)*18,m.y+(float)Math.sin(a)*18,(float)Math.cos(a)*speed,(float)Math.sin(a)*speed,damage,true,m.type));}
+        void updateShots(float dt,long now){
+            for(int i=shots.size()-1;i>=0;i--){Shot b=shots.get(i);b.x+=b.vx*dt;b.y+=b.vy*dt;b.life--;
+                if(b.life<=0||b.x<0||b.y<0||b.x>WORLD_W||b.y>WORLD_H){shots.remove(i);continue;}
+                if(b.hostile){if(dist(b.x,b.y,px,py)<19){shots.remove(i);if(now>=invincibleUntil&&now>=dashUntil){health-=b.damage;invincibleUntil=now+490;damageFlashUntil=now+150;play(sHit);notification("PROJECTILE IMPACT  -"+b.damage,600);if(health<=0)playerDown();}continue;}}
+                else{
+                    boolean hit=false;
+                    for(Mob m:mobs){if(!m.alive)continue;float rad=m.big?44:23;if(dist(b.x,b.y,m.x,m.y)<rad){m.hp-=b.damage;hit=true;shotsHit++;for(int k=0;k<5;k++)particle(b.x,b.y,m.big?col("#FF6F98"):col("#F7C56C"),2.3f,13);m.stunUntil=now+(m.big?50:100);
+                        if(m.hp<=0)killMob(m);break;}}
+                    if(hit){shots.remove(i);continue;}
+                }
+            }
+        }
+        void fireGun(long now){
+            if(now-lastShot<new int[]{270,105,590}[currentGun])return;
+            if(mag[currentGun]<=0){if(reserve[currentGun]>0){startReload(now);return;}notification("OUT OF AMMO  •  FIND A SUPPLY CACHE",850);play(sEmpty);firing=false;return;}
+            float a=aimAngle;
+            if(!aimActive){Mob target=nearestMob(790);if(target!=null)a=(float)Math.atan2(target.y-py,target.x-px);}
+            int gun=currentGun, count=gun==2?5:1;float spread=gun==0?0.035f:gun==1?0.095f:0.52f;
+            for(int i=0;i<count;i++){float ang=a+(count==1?(rng.nextFloat()*2-1)*spread:(i-(count-1)/2f)*spread+(rng.nextFloat()-.5f)*0.09f);float speed=gun==0?710:gun==1?760:640;int damage=(gun==0?25:gun==1?12:17)+level/3;
+                shots.add(new Shot(px+(float)Math.cos(ang)*27,py+(float)Math.sin(ang)*27,(float)Math.cos(ang)*speed,(float)Math.sin(ang)*speed,damage,false,gun));}
+            mag[gun]--;shotsFired++;lastShot=now;firePressedAt=now;
+            play(gun==0?sPistol:gun==1?sRifle:sShotgun);
+            if(gun==2){for(int i=0;i<11;i++)particle(px+(float)Math.cos(a)*31,py+(float)Math.sin(a)*31,col("#FFC974"),3.4f,8);}
+            if(mag[gun]==0&&reserve[gun]>0)startReload(now);
+        }
+        Mob nearestMob(float maxDistance){Mob best=null;float bd=maxDistance;for(Mob m:mobs){if(!m.alive)continue;float d=dist(px,py,m.x,m.y);if(d<bd){bd=d;best=m;}}return best;}
+        void startReload(long now){if(reloadUntil>now||mag[currentGun]>=new int[]{12,32,6}[currentGun]||reserve[currentGun]<=0)return;reloadUntil=now+(currentGun==0?900:currentGun==1?1250:1500);play(sReload);}
+        void finishReload(){int cap=new int[]{12,32,6}[currentGun],need=cap-mag[currentGun],take=Math.min(need,reserve[currentGun]);mag[currentGun]+=take;reserve[currentGun]-=take;play(sReload);}
+        void switchGun(int n){if(n<0||n>2)return;if(!gunUnlocked[n]){notification("LOCKED  •  FIND A WEAPON CACHE",1000);play(sEmpty);return;}currentGun=n;reloadUntil=0;play(sReload);}
+        void killMob(Mob m){
+            if(!m.alive)return;m.alive=false;kills++;zoneKills[m.zone]++;coins+=m.big?380+80*m.zone:4+2*m.type+2*m.zone;addXP(m.big?600+level*13:18+level*3+m.zone*5);
+            if(m.big){bossDefeated[m.zone]=true;bossSpawned[m.zone]=false;coins+=600;medkits++;notification("GUARDIAN SLAIN  •  REGION "+(m.zone+1)+" UNSEALED",3600);play(sQuest);for(int i=0;i<38;i++)particle(m.x,m.y,accent(m.zone),4.5f,32);}
+            else{for(int i=0;i<10;i++)particle(m.x,m.y,m.type==2?col("#9BE9FF"):col("#F5A86D"),2.5f,18);if(rng.nextInt(100)<28)drops.add(new Drop(m.x+12,m.y,0,6+rng.nextInt(15)+m.zone*3,m.zone));if(rng.nextInt(100)<15)drops.add(new Drop(m.x-9,m.y+8,1,0,m.zone));if(rng.nextInt(100)<10)drops.add(new Drop(m.x+7,m.y-6,2,0,m.zone));if(rng.nextInt(100)<12)drops.add(new Drop(m.x+17,m.y-5,3,0,m.zone));if(rng.nextInt(100)<4)drops.add(new Drop(m.x,m.y,4,rng.nextInt(2)+1,m.zone));}
+            save();
+        }
+        void playerDown(){health=Math.max(1,maxHealth/2);coins=Math.max(0,coins-45);px=checkpointX;py=checkpointY;invincibleUntil=System.currentTimeMillis()+2500;shots.removeIf(b->b.hostile);notification("DOWNED  •  RESPAWNED AT LAST CAMP  •  -45 CREDITS",3400);play(sBoss);save();}
+        void updateDrops(long now){
+            for(int i=drops.size()-1;i>=0;i--){Drop d=drops.get(i);if(dist(px,py,d.x,d.y)<34){
+                if(d.type==0){coins+=d.value;notification("+"+d.value+" CREDITS",500);}
+                else if(d.type==1){for(int j=0;j<3;j++)reserve[j]+=j==0?12:j==1?28:8;ammoPickupCount++;notification("AMMO RESTOCKED",750);play(sLoot);}
+                else if(d.type==2){medkits++;notification("MEDKIT FOUND",900);play(sLoot);}
+                else if(d.type==3){addXP(25+d.zone*4);notification("ANCIENT SHARD  •  XP",700);play(sLoot);}
+                else{int gun=Math.max(0,Math.min(2,d.value));gunUnlocked[gun]=true;reserve[gun]+=gun==1?72:gun==2?18:24;notification(new String[]{"PISTOL","SMG","SHOTGUN"}[gun]+" DISCOVERED",1900);play(sQuest);}
+                drops.remove(i);save();
+            }else if(now-d.born>90000)drops.remove(i);}
+        }
+        void updateSparks(float dt){for(int i=sparks.size()-1;i>=0;i--){Spark s=sparks.get(i);s.x+=s.vx*dt;s.y+=s.vy*dt;s.vx*=0.92f;s.vy*=0.92f;s.life--;if(s.life<=0)sparks.remove(i);}for(int i=sparks.size()-1;i>=0;i--){Spark s=sparks.get(i);circle(s.x,s.y,s.size,s.color);}}
+        void particle(float x,float y,int color,float speed,int life){double a=rng.nextDouble()*Math.PI*2;float v=rng.nextFloat()*speed;sparks.add(new Spark(x,y,(float)Math.cos(a)*v,(float)Math.sin(a)*v,1.2f+rng.nextFloat()*2.5f,color,life));if(sparks.size()>260)sparks.remove(0);}
+
+        void interact(){
+            Landmark q=nearestLandmark(px,py,true);long now=System.currentTimeMillis();
+            if(q==null||dist(px,py,q.x,q.y)>125){notification("MOVE CLOSER TO A RELAY OR CACHE",950);play(sEmpty);return;}
+            if(q.type==0){
+                if(!regionUnlocked(q.zone)){notification("REGION SEALED",950);return;}
+                q.used=true;relayCount[q.zone]++;relaysTotal++;coins+=65+q.zone*10;addXP(90+q.zone*20);reserve[currentGun]+=currentGun==0?7:currentGun==1?18:5;
+                health=Math.min(maxHealth,health+14);notification("SIGNAL RELAY STABLE  •  "+relayCount[q.zone]+"/4  •  +65 CREDITS",2100);play(sQuest);for(int i=0;i<18;i++)particle(q.x,q.y,accent(q.zone),3,25);
+                if(relayCount[q.zone]>=4&&!bossDefeated[q.zone])notification("ALL SIGNALS STABLE  •  RETURN TO THE GUARDIAN ALTAR",3200);save();
+            }else if(q.type==1){
+                if(q.used){notification("THIS CACHE HAS ALREADY BEEN OPENED",850);return;}
+                q.used=true;openedCaches++;coins+=180+q.zone*40;addXP(110+q.zone*24);for(int j=0;j<3;j++)reserve[j]+=j==0?24:j==1?60:12;medkits++;health=Math.min(maxHealth,health+30);
+                if(rng.nextInt(100)<48){int next=!gunUnlocked[1]?1:!gunUnlocked[2]?2:rng.nextBoolean()?1:2;gunUnlocked[next]=true;reserve[next]+=next==1?72:18;drops.add(new Drop(q.x,q.y-35,4,next,q.zone));}
+                notification("SUPPLY CACHE OPENED  •  CREDITS, AMMO & MEDKIT",2300);play(sLoot);for(int i=0;i<22;i++)particle(q.x,q.y,col("#EBCB79"),3.5f,26);save();
+            }else if(q.type==2){
+                if(bossDefeated[q.zone]){notification("THIS GUARDIAN HAS FALLEN",900);return;}
+                if(!regionUnlocked(q.zone)||relaysIn(q.zone)<4){notification("ALTAR SEALED  •  STABILISE "+(4-relaysIn(q.zone))+" MORE RELAYS",1500);play(sEmpty);return;}
+                if(bossSpawned[q.zone]){notification("THE GUARDIAN IS ALREADY HUNTING YOU",1100);return;}
+                q.used=true;bossSpawned[q.zone]=true;spawnGuardian(q.zone);save();
+            }else{
+                checkpointX=q.x;checkpointY=q.y;health=maxHealth;medkits=Math.max(medkits,1);for(int j=0;j<3;j++)reserve[j]+=j==0?18:j==1?36:10;
+                notification("CAMP SUPPLIES RESTORED  •  CHECKPOINT SET",1800);play(sLoot);save();
+            }
+        }
+        void useMedkit(){
+            if(medkits<=0){notification("NO MEDKITS  •  SEARCH SUPPLY CACHES",900);play(sEmpty);return;}
+            if(health>=maxHealth){notification("HEALTH IS ALREADY FULL",700);return;}
+            medkits--;health=Math.min(maxHealth,health+52);play(sLoot);notification("MEDKIT USED  •  +52 HP",850);save();
+        }
+        void triggerDash(){
+            long now=System.currentTimeMillis();if(now<dashReadyAt){notification("DASH RECHARGING",500);return;}
+            if(Math.hypot(moveX,moveY)<0.15){moveX=(float)Math.cos(aimAngle);moveY=(float)Math.sin(aimAngle);}
+            dashUntil=now+260;dashReadyAt=now+1550;invincibleUntil=now+330;for(int i=0;i<22;i++)particle(px,py,col("#88DCFF"),4,19);play(sDash);
+        }
+        void handleButton(float x,float y){
+            if(y<84){
+                if(x>812){mapOpen=!mapOpen;return;}
+                if(x>=545&&x<787){int slot=(int)((x-548)/79);switchGun(Math.min(2,Math.max(0,slot)));return;}
+            }
+            if(mapOpen){mapOpen=false;return;}
+            if(x<230&&y>345){movePid=0;moveTouchX=x;moveTouchY=y;return;}
+            if(dist(x,y,875,337)<53){firing=true;firePid=0;firePressedAt=System.currentTimeMillis();return;}
+            if(dist(x,y,674,340)<39){triggerDash();return;}
+            if(dist(x,y,859,447)<32){startReload(System.currentTimeMillis());return;}
+            if(dist(x,y,925,447)<34){interact();return;}
+            if(x>=710&&x<=836&&y>=364){aimPid=0;aimTouchX=x;aimTouchY=y;return;}
+            if(y>400&&x<250){movePid=0;moveTouchX=x;moveTouchY=y;}
+        }
+        void pointerDown(MotionEvent e,int index){
+            int id=e.getPointerId(index);float x=e.getX(index)/sx,y=e.getY(index)/sy;
+            if(y<84&&x>812){mapOpen=!mapOpen;return;}
+            if(mapOpen){mapOpen=false;return;}
+            if(y<84&&x>=545&&x<787){int slot=(int)((x-548)/79);switchGun(Math.min(2,Math.max(0,slot)));return;}
+            if(x<230&&y>345&&movePid<0){movePid=id;moveTouchX=x;moveTouchY=y;return;}
+            if(dist(x,y,875,337)<53&&firePid<0){firePid=id;firing=true;firePressedAt=System.currentTimeMillis();return;}
+            if(dist(x,y,674,340)<39){triggerDash();return;}
+            if(dist(x,y,859,447)<32){startReload(System.currentTimeMillis());return;}
+            if(dist(x,y,925,447)<34){interact();return;}
+            if(x>=710&&x<=836&&y>=364&&aimPid<0){aimPid=id;aimTouchX=x;aimTouchY=y;return;}
+            if(dist(x,y,55,340)<35){useMedkit();return;}
+        }
+        void pointerMove(MotionEvent e){for(int i=0;i<e.getPointerCount();i++){int id=e.getPointerId(i);float x=e.getX(i)/sx,y=e.getY(i)/sy;if(id==movePid){moveTouchX=x;moveTouchY=y;}if(id==aimPid){aimTouchX=x;aimTouchY=y;}}}
+        void pointerUp(MotionEvent e,int index){int id=e.getPointerId(index);if(id==movePid){movePid=-1;moveX=0;moveY=0;}if(id==aimPid){aimPid=-1;aimActive=false;}if(id==firePid){firePid=-1;firing=false;}}
+        @Override public boolean onTouchEvent(MotionEvent e){
+            int a=e.getActionMasked();
+            if(a==MotionEvent.ACTION_DOWN||a==MotionEvent.ACTION_POINTER_DOWN){pointerDown(e,e.getActionIndex());invalidate();return true;}
+            if(a==MotionEvent.ACTION_MOVE){pointerMove(e);invalidate();return true;}
+            if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP){pointerUp(e,e.getActionIndex());if(a==MotionEvent.ACTION_UP){movePid=-1;aimPid=-1;firePid=-1;firing=false;}invalidate();return true;}
+            if(a==MotionEvent.ACTION_CANCEL){movePid=aimPid=firePid=-1;moveX=moveY=0;firing=false;aimActive=false;return true;}
+            return true;
         }
     }
 }
