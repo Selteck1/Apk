@@ -129,11 +129,12 @@ public class MainActivity extends Activity {
         @Override protected void onDraw(Canvas canvas){
             super.onDraw(canvas);c=canvas;sx=getWidth()/390f;sy=getHeight()/844f;c.save();c.scale(sx,sy);
             paint(color("#080914"));c.drawRect(0,0,390,844,p);
-            p.setShader(new LinearGradient(0,0,340,844,color("#19152F"),color("#080914"),Shader.TileMode.CLAMP));c.drawRect(0,0,390,844,p);p.setShader(null);
-            glow(315,230,65,color("#40316E"),55);glow(40,470,55,color("#222C62"),42);
+            int[] sky={color("#19152F"),color("#321D22"),color("#122B43"),color("#112F3A"),color("#281C47"),color("#32152F")}; int[] glowPal={color("#40316E"),color("#9E4A28"),color("#418CB5"),color("#2AABAC"),color("#8B65D5"),color("#D2387C")};
+            p.setShader(new LinearGradient(0,0,340,844,sky[Math.floorMod(region,sky.length)],color("#080914"),Shader.TileMode.CLAMP));c.drawRect(0,0,390,844,p);p.setShader(null);
+            glow(315,230,65,glowPal[Math.floorMod(region,glowPal.length)],55);glow(40,470,55,glowPal[Math.floorMod(region,glowPal.length)],42);
             for(int i=0;i<52;i++){float xx=(i*73+17)%390, yy=(i*131+19)%710;paint(Color.argb(80+(i%5)*28,173,176,255));c.drawCircle(xx,yy,0.5f+(i%3)*0.4f,p);}
             header();
-            if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)quests();else world();
+            tickCombat(); if(tab==0)battle();else if(tab==1)hero();else if(tab==2)skills();else if(tab==3)cases();else if(tab==4)quests();else world();
             nav(); if(flashTicks>0){rect(0,0,390,735,Color.argb(Math.min(90,flashTicks*12),210,85,140),0);flashTicks--;}
             if(hitTicks>0)hitTicks--; c.restore();postInvalidateDelayed(45);
         }
@@ -197,9 +198,10 @@ public class MainActivity extends Activity {
             glow(190,388,80,color(boss?"#B12F67":"#7547CF"),25);
             paint(color("#3B2B70"));c.drawOval(72,380,315,405,p);
             // enemy detailed, each archetype different silhouette
-            if(boss) drawBoss(245,345+(float)Math.sin(System.currentTimeMillis()/260.0)*3.0f,1.15f);
-            else drawEnemy(245,350+(float)Math.sin(System.currentTimeMillis()/230.0)*2.5f,enemyType%5,1.0f);
-            drawHero(125,358,0.83f,hitTicks>0);
+            if(boss) drawBoss(enemyX,345+(float)Math.sin(System.currentTimeMillis()/260.0)*3.0f,1.15f);
+            else drawEnemy(enemyX,350+(float)Math.sin(System.currentTimeMillis()/230.0)*2.5f,enemyType%7,1.0f);
+            drawHero(heroX,358-(System.currentTimeMillis()<jumpUntil?42:0),0.83f,hitTicks>0);
+            if(hitTicks>0){ paint(Color.argb(235,220,242,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);c.drawArc(heroX+8,317,heroX+93,396,-72+(10-hitTicks)*17,105,false,p);p.setStyle(Paint.Style.FILL); for(int k=0;k<7;k++){float a=(System.currentTimeMillis()/19+k*51)%360;float rr=16+(k*7);paint(Color.argb(150,198,145,255));c.drawCircle(heroX+43+(float)Math.cos(Math.toRadians(a))*rr,355+(float)Math.sin(Math.toRadians(a))*rr,1.5f+(k%3),p);} }
             // enemy nameplate
             rect(29,191,209,266,color("#10101F"),10);
             txt(boss?"☠  RAID BOSS":"✦  "+enemyName,39,208,boss?9:10,boss?color("#FF8DAE"):Color.WHITE,true);
@@ -216,12 +218,13 @@ public class MainActivity extends Activity {
             txt("CRIT "+crit+"%",30,488,8,color("#B9A4FF"),true);
             txt("COMBO x"+Math.max(1,combo),280,488,8,color("#A7EDFF"),true);
             // action controls
-            gradient(18,507,372,568,color("#A46BFF"),color("#5633B3"),13);
-            center("⚔  STRIKE",195,531,16,Color.WHITE,true);
-            center("Tap to attack  •  combo builds with each hit",195,551,9,color("#E8D9FF"),false);
+            rect(18,507,88,568,color("#292441"),11);center("◀",53,539,19,color("#CBB2FF"),true);center("STEP",53,554,7,color("#A5A0C5"),true);
+            rect(94,507,157,568,color("#292441"),11);center("JUMP",125,535,10,color("#9DEBFF"),true);center("DODGE",125,551,7,color("#A5A0C5"),true);
+            gradient(163,507,275,568,color("#A46BFF"),color("#5633B3"),11);center("⚔ ATTACK",219,536,12,Color.WHITE,true);center("combo strike",219,552,7,color("#E8D9FF"),false);
+            rect(281,507,372,568,color("#292441"),11);center("▶",326,539,19,color("#CBB2FF"),true);center("STEP",326,554,7,color("#A5A0C5"),true);
             rect(18,580,130,633,color("#24213E"),10);txt("✦ SKILL",29,598,10,color("#D4B8FF"),true);txt("RIFT BURST",29,613,8,color("#9B94C2"),false);txt("MP "+mana+"/"+maxMana,29,625,7,color("#9B94C2"),false);
             rect(141,580,251,633,color("#24213E"),10);txt("✚ POTION",152,598,10,color("#FFB4CE"),true);txt("Heal 45%",152,613,8,color("#9B94C2"),false);txt("Have: "+potions,152,625,7,color("#9B94C2"),false);
-            rect(262,580,372,633,color("#24213E"),10);txt("◈ EVENT",273,598,10,color("#A6EDFF"),true);txt("Rift invasion",273,613,8,color("#9B94C2"),false);txt(eventProgress+"/10 kills",273,625,7,color("#9B94C2"),false);
+            rect(262,580,372,633,color("#24213E"),10);txt("◈ CASES",273,598,10,color("#A6EDFF"),true);txt("Open loot",273,613,8,color("#9B94C2"),false);txt(casesOpened+" opened",273,625,7,color("#9B94C2"),false);
             rect(18,646,372,715,color("#111324"),10);
             txt("HUNT CONTRACT",30,663,8,color("#A79BCE"),true);
             txt("Defeat "+(questClaimed+5)+" enemies",30,681,11,Color.WHITE,true);
@@ -343,18 +346,18 @@ public class MainActivity extends Activity {
         }
         void nav(){
             rect(0,735,390,844,color("#0A0B17"),0);rect(18,744,372,745,color("#282640"),1);
-            String[] labels={"BATTLE","HERO","SKILLS","QUESTS","WORLD"};String[] icons={"⚔","♙","✧","☷","⌖"};
-            for(int i=0;i<5;i++){float x=39+i*78;int co=tab==i?color("#D0ACFF"):color("#777691");if(tab==i)rect(x-25,750,x+25,806,color("#29223F"),10);center(icons[i],x,772,18,co,true);center(labels[i],x,792,7,co,true);}
+            String[] labels={"BATTLE","HERO","SKILLS","CASES","QUESTS","WORLD"};String[] icons={"⚔","♙","✧","▣","☷","⌖"};
+            for(int i=0;i<6;i++){float x=32.5f+i*65;int co=tab==i?color("#D0ACFF"):color("#777691");if(tab==i)rect(x-23,750,x+23,806,color("#29223F"),9);center(icons[i],x,772,17,co,true);center(labels[i],x,792,6.4f,co,true);}
             center("PROJECT: ASCENSION  •  OFFLINE DARK RPG",195,825,7,color("#555471"),true);
             txt(audioOn?"♪ ON":"♪ OFF",333,824,7,audioOn?color("#9EEBFF"):color("#77718A"),true);
         }
         @Override public boolean onTouchEvent(MotionEvent e){
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
             float x=e.getX()/sx,y=e.getY()/sy;
-            if(y>=735){if(x>=315){audioOn=!audioOn;if(audioOn)play(sClick);}else{tab=Math.min(4,Math.max(0,(int)(x/78)));play(sClick);}invalidate();return true;}
+            if(y>=735){if(x>=330){audioOn=!audioOn;if(audioOn)play(sClick);}else{tab=Math.min(5,Math.max(0,(int)(x/65)));play(sClick);}invalidate();return true;}
             if(tab==0){
-                if(y>=507&&y<=570)attackEnemy();
-                else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else {tab=3;}}
+                if(y>=507&&y<=570){if(x<90){heroX=Math.max(52,heroX-34);lastStep=System.currentTimeMillis();}else if(x<160){jumpUntil=System.currentTimeMillis()+680;heroX=Math.min(322,heroX+8);play(sSkill);}else if(x<278)attackEnemy();else{heroX=Math.min(322,heroX+34);lastStep=System.currentTimeMillis();} }
+                else if(y>=580&&y<=636){if(x<137)riftBurst();else if(x<255)usePotion();else tab=3;}
                 else if(y>=646&&y<=715&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
             }else if(tab==1){
                 if(y>=560&&y<=629){if(x<184)buyUpgrade(0);else buyUpgrade(1);}
@@ -365,16 +368,20 @@ public class MainActivity extends Activity {
                 else if(y>=476&&y<=563)upgradeSkill(2);
                 else if(y>=574&&y<=661)upgradeSkill(3);
             }else if(tab==3){
+                if(y>=199&&y<=303){if(x<130)openCase(0);else if(x<260)openCase(1);else openCase(2);}
+            }else if(tab==4){
                 if(y>=199&&y<=303&&eventProgress>=10&&eventClaimed==0){gold+=180;shards+=2;eventClaimed=1;play(sWin);save();}
                 else if(y>=316&&y<=407&&kills-questClaimed>=5){gold+=90;shards++;questClaimed+=5;play(sWin);save();}
                 else if(y>=420&&y<=511&&bossKills>prefs.getInt("claimedBossKills",0)){shards+=2;prefs.edit().putInt("claimedBossKills",bossKills).apply();gold+=120;play(sWin);save();}
                 else if(y>=524&&y<=615&&shards>=3){shards-=3;potions++;play(sBuy);save();}
                 else if(y>=628&&y<=715&&kills>0&&dailyClaimed==0){dailyClaimed=1;gold+=55;potions++;play(sWin);save();}
-            }else if(tab==4){
-                if(y>=199&&y<=299){region=0;spawnEnemy();}
-                else if(y>=311&&y<=411&&level>=5){region=1;spawnEnemy();}
-                else if(y>=423&&y<=523&&level>=12){region=2;spawnEnemy();}
-                else if(y>=535&&y<=635&&level>=20){region=3;spawnEnemy();}
+            }else if(tab==5){
+                if(y>=199&&y<=285&&realmUnlocked(0)){region=0;spawnEnemy();}
+                else if(y>=291&&y<=377&&realmUnlocked(1)){region=1;spawnEnemy();}
+                else if(y>=383&&y<=469&&realmUnlocked(2)){region=2;spawnEnemy();}
+                else if(y>=475&&y<=561&&realmUnlocked(3)){region=3;spawnEnemy();}
+                else if(y>=567&&y<=653&&realmUnlocked(4)){region=4;spawnEnemy();}
+                else if(y>=659&&y<=715&&realmUnlocked(5)){region=5;spawnEnemy();}
             }
             invalidate();return true;
         }
