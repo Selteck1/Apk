@@ -33,7 +33,8 @@ public class MainActivity extends Activity {
         int tab=0, level, xp, gold, hp, maxHp, attack, defense, kills, skillPoints, mana, maxMana, dailyClaimed;
         int strength, vitality, focus, crit, potions, shards, bossKills, questClaimed, eventClaimed;
         int weaponTier, armorTier, relicTier, combo, eventProgress, lastHit;
-        int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins;
+        int weaponId, armorId, weaponPower, armorPower, weaponRarity, armorRarity, casesOpened, stageWins, weaponCollection=1, armorCollection=1;
+        int[] ownedWeaponPower=new int[8], ownedWeaponRarity=new int[8], ownedArmorPower=new int[8], ownedArmorRarity=new int[8];
         float heroX=112, enemyX=270, heroJump=0; long jumpUntil=0, invulnerableUntil=0, nextEnemyAttack=0, lastStep=0;
         String lootNotice="Explore the Shattered Realm", lastLoot="No loot yet"; long lootNoticeUntil=0;
         int enemyHp, enemyMax, enemyType, region, flashTicks, hitTicks, shakeTicks;
@@ -54,7 +55,8 @@ public class MainActivity extends Activity {
             eventClaimed=prefs.getInt("eventClaimed",0); weaponTier=prefs.getInt("weaponTier",1);
             armorTier=prefs.getInt("armorTier",0); relicTier=prefs.getInt("relicTier",0);
             region=prefs.getInt("region",0); eventProgress=prefs.getInt("eventProgress",0);
-            weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0);
+            weaponId=prefs.getInt("weaponId",0); armorId=prefs.getInt("armorId",0); weaponPower=prefs.getInt("weaponPower",0); armorPower=prefs.getInt("armorPower",0); weaponRarity=prefs.getInt("weaponRarity",0); armorRarity=prefs.getInt("armorRarity",0); casesOpened=prefs.getInt("casesOpened",0); stageWins=prefs.getInt("stageWins",0); weaponCollection=prefs.getInt("weaponCollection",1); armorCollection=prefs.getInt("armorCollection",1);
+            for(int i=0;i<8;i++){ownedWeaponPower[i]=prefs.getInt("wp"+i,0);ownedWeaponRarity[i]=prefs.getInt("wr"+i,0);ownedArmorPower[i]=prefs.getInt("ap"+i,0);ownedArmorRarity[i]=prefs.getInt("ar"+i,0);}
             enemyType=prefs.getInt("enemyType",0); boss=prefs.getBoolean("boss",false);
             enemyMax=prefs.getInt("enemyMax",90+level*9); enemyHp=prefs.getInt("enemyHp",enemyMax);
             if(hp<1) hp=maxHp;
@@ -117,7 +119,7 @@ public class MainActivity extends Activity {
             .putInt("strength",strength).putInt("vitality",vitality).putInt("focus",focus).putInt("crit",crit).putInt("potions",potions)
             .putInt("shards",shards).putInt("bossKills",bossKills).putInt("questClaimed",questClaimed).putInt("eventClaimed",eventClaimed)
             .putInt("weaponTier",weaponTier).putInt("armorTier",armorTier).putInt("relicTier",relicTier).putInt("region",region)
-            .putInt("eventProgress",eventProgress).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
+            .putInt("eventProgress",eventProgress).putInt("weaponCollection",weaponCollection).putInt("armorCollection",armorCollection).putInt("weaponId",weaponId).putInt("armorId",armorId).putInt("weaponPower",weaponPower).putInt("armorPower",armorPower).putInt("weaponRarity",weaponRarity).putInt("armorRarity",armorRarity).putInt("casesOpened",casesOpened).putInt("stageWins",stageWins).putInt("enemyType",enemyType).putBoolean("boss",boss).putInt("enemyMax",enemyMax).putInt("enemyHp",enemyHp)
             .putLong("eventSeed",eventSeed).apply();}
         int xpNeed(){return 190+level*78+level*level*3;}
         int actualAttack(){return attack+weaponTier*3+strength*4+relicTier*2+weaponPower;}
@@ -143,7 +145,7 @@ public class MainActivity extends Activity {
             txt("✦ "+gold,298,29,12,color("#F5D58C"),true);
             txt("◈ "+shards,353,29,10,color("#9DEBFF"),true);
             txt("THE SHATTERED REALM",18,57,20,Color.WHITE,true);
-            txt("SEASON 01  /  THE VEIL",18,75,9,color("#8985B5"),true);
+            txt("EXPEDITION "+(region+1)+"  /  "+regionName(),18,75,9,color("#8985B5"),true);
             rect(18,88,372,145,color("#17172E"),13);
             gradient(18,88,23,145,color("#E8C879"),color("#8B57ED"),2);
             heroPortrait(48,116,0.55f);
@@ -295,6 +297,40 @@ public class MainActivity extends Activity {
         void itemCard(int l,int t,int r,int b,String icon,String name,String desc,int cost,int type){
             rect(l,t,r,b,color("#1B1A35"),10);txt(icon,l+9,t+21,14,type==3?color("#FF9EBB"):color("#C6A6FF"),true);txt(name,l+30,t+19,8,Color.WHITE,true);txt(desc,l+9,t+35,7,color("#A5A1C4"),false);
             rect(r-58,t+43,r-7,b-5,color("#393057"),6);center(type==3?"BUY":cost+" G",r-32,t+57,7,color("#F0D48C"),true);
+        }
+        String regionName(){String[] n={"THE VEIL","ASHEN HOLLOW","FROSTBOUND","SUNKEN CITADEL","STARFALL MARCH","THE ABYSS"};return n[Math.floorMod(region,n.length)];}
+        boolean realmUnlocked(int r){int[] req={1,5,10,16,22,30};return r==0||(level>=req[r]&&bossKills>=r);}
+        String[] weaponNames(){return new String[]{"Riftfang","Mooncleaver","Sunspike","Frostbrand","Ashen Katana","Voidreaver","Crownpiercer","Starfall Edge"};}
+        String[] armorNames(){return new String[]{"Warden Coat","Ashguard","Frostplate","Tidebound Mail","Astral Mantle","Hollow Aegis","Riftwalker Suit","Eclipse Crown"};}
+        String rarityName(int r){String[] n={"COMMON","UNCOMMON","RARE","EPIC","LEGENDARY","MYTHIC"};return n[Math.max(0,Math.min(5,r))];}
+        int rarityColor(int r){int[] a={color("#B6B8C8"),color("#72D6A3"),color("#69B7FF"),color("#C18BFF"),color("#F0C96E"),color("#FF6FB1")};return a[Math.max(0,Math.min(5,r))];}
+        void chestArt(float x,float y,float scale,int rarity,boolean open){c.save();c.translate(x,y);c.scale(scale,scale);int rc=rarityColor(rarity);glow(0,12,29,rc,14);paint(color("#151324"));Path base=new Path();base.moveTo(-27,-2);base.lineTo(27,-2);base.lineTo(23,22);base.lineTo(-23,22);base.close();c.drawPath(base,p);gradient(-27,-13,27,7,color("#5D402E"),color("#201B33"),5);paint(color("#A77D4E"));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(-27,-14,27,9,5,5,p);p.setStyle(Paint.Style.FILL);rect(-5,-14,5,22,rc,2);rect(-24,4,24,8,color("#D6B16D"),2);if(open){c.save();c.rotate(-36,-16,-11);gradient(-27,-25,27,-9,color("#8A60C2"),color("#302244"),5);outline(-27,-25,27,-9,rc,5,2);c.restore();glow(0,-18,14,rc,15);for(int i=0;i<7;i++){float a=(i*53+System.currentTimeMillis()/11)%360;paint(Color.argb(220,255,238,180));c.drawCircle((float)Math.cos(Math.toRadians(a))*(12+i%3*7),-21+(float)Math.sin(Math.toRadians(a))*(8+i%3*3),1.5f,p);}}else{rect(-5,-7,5,1,rc,2);}c.restore();}
+        void cases(){
+            txt("RELIC CASES",18,168,15,Color.WHITE,true);txt("Every opening is permanent loot • duplicates become gold",18,186,8,color("#9792BB"),false);
+            int[] co={color("#77798A"),color("#4B9FC4"),color("#A84FC7")};String[] names={"WANDERER CACHE","ASTRAL VAULT","ECLIPSE CASE"};String[] cost={"120 GOLD","1 SHARD","300 GOLD + 2 SHARDS"};String[] detail={"Common → Epic","Rare → Mythic","Epic → Mythic"};
+            for(int i=0;i<3;i++){int l=18+i*119;int rr=l+111;rect(l,202,rr,506,color("#17172F"),12);outline(l,202,rr,506,co[i],12,1);chestArt(l+55,283,1.0f,i+1,false);center(names[i],l+55,337,7.5f,Color.WHITE,true);center(cost[i],l+55,356,7,color("#F0D58F"),true);center(detail[i],l+55,375,7,color("#A6A0C6"),false);center(new String[]{"Gear roll","Better odds","Best odds"}[i],l+55,405,8,co[i],true);rect(l+8,455,rr-8,489,co[i],8);center("OPEN CASE",l+55,476,8,Color.WHITE,true);}
+            rect(18,519,372,576,color("#1B1933"),10);txt("COLLECTION",30,538,9,color("#CBAFFF"),true);txt("Weapons "+Integer.bitCount(weaponCollection)+"/8",30,555,9,Color.WHITE,true);txt("Armor "+Integer.bitCount(armorCollection)+"/8",157,555,9,Color.WHITE,true);txt("Cases opened: "+casesOpened,276,555,8,color("#F0D58F"),true);
+            rect(18,587,372,715,color("#111324"),11);if(System.currentTimeMillis()<lootNoticeUntil){chestArt(52,649,0.72f,3,true);txt("LATEST DROP",85,613,8,color("#BCA5F5"),true);txt(lootNotice,85,635,10,Color.WHITE,true);txt(lastLoot,85,653,8,color("#B2AACB"),false);txt("Gear stays in your collection. Tap HERO to equip.",30,690,8,color("#9C97B9"),false);}else{chestArt(52,649,0.72f,2,false);txt("LOOT REVEAL",85,613,9,color("#BCA5F5"),true);txt("Open a case to find rare weapons",85,634,10,Color.WHITE,true);txt("and armor with permanent stat bonuses.",85,651,9,color("#B2AACB"),false);txt("Duplicates are automatically dismantled for gold.",30,690,8,color("#9C97B9"),false);}
+        }
+        void openCase(int type){
+            int costGold=type==0?120:type==1?0:300;int costShards=type==0?0:type==1?1:2;
+            if(gold<costGold||shards<costShards){lootNotice="Not enough gold or shards";lootNoticeUntil=System.currentTimeMillis()+2500;play(sClick);return;}
+            gold-=costGold;shards-=costShards;casesOpened++;
+            int roll=rng.nextInt(100), rarity;
+            if(type==0)rarity=roll<50?0:roll<77?1:roll<91?2:roll<98?3:4;
+            else if(type==1)rarity=roll<25?1:roll<60?2:roll<85?3:roll<97?4:5;
+            else rarity=roll<5?2:roll<30?3:roll<75?4:5;
+            boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;
+            if(weapon){weaponCollection|=(1<<id);ownedWeaponPower[id]=Math.max(ownedWeaponPower[id],power);ownedWeaponRarity[id]=Math.max(ownedWeaponRarity[id],rarity);prefs.edit().putInt("wp"+id,ownedWeaponPower[id]).putInt("wr"+id,ownedWeaponRarity[id]).apply();
+                if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=rarity;lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
+            else{armorCollection|=(1<<id);ownedArmorPower[id]=Math.max(ownedArmorPower[id],power);ownedArmorRarity[id]=Math.max(ownedArmorRarity[id],rarity);prefs.edit().putInt("ap"+id,ownedArmorPower[id]).putInt("ar"+id,ownedArmorRarity[id]).apply();
+                if(armorId==id||power>armorPower){armorId=id;armorPower=power;armorRarity=rarity;lootNotice="EQUIPPED "+armorNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+armorNames()[id];}}
+            lastLoot=rarityName(rarity)+" • +"+power+(weapon?" ATK":" DEF");lootNoticeUntil=System.currentTimeMillis()+5000;flashTicks=8;play(sWin);save();invalidate();
+        }
+        void cycleGear(boolean weapon){
+            if(weapon){for(int step=1;step<=8;step++){int id=(weaponId+step)%8;if((weaponCollection&(1<<id))!=0){weaponId=id;weaponPower=ownedWeaponPower[id];weaponRarity=ownedWeaponRarity[id];break;}}}
+            else{for(int step=1;step<=8;step++){int id=(armorId+step)%8;if((armorCollection&(1<<id))!=0){armorId=id;armorPower=ownedArmorPower[id];armorRarity=ownedArmorRarity[id];break;}}}
+            play(sBuy);save();invalidate();
         }
         void skills(){
             txt("ASCENSION TREE",18,168,15,Color.WHITE,true);txt("Spend skill points earned by leveling.",18,186,9,color("#9792BB"),false);
