@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - zombie-apocalypse-3d
+    paths-ignore:
+      - downloadable/**
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -30,15 +32,63 @@ jobs:
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
       - name: Build debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Prepare named APK
+        id: build
+        shell: bash
         run: |
-          mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/DEAD-DISTRICT-3D.apk
-      - name: Upload installable APK
+          set +e
+          gradle --no-daemon --stacktrace :app:assembleDebug > "$RUNNER_TEMP/gradle-build.log" 2>&1
+          rc=$?
+          cat "$RUNNER_TEMP/gradle-build.log"
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          echo "BUILD_EXIT_CODE=$rc" >> "$GITHUB_ENV"
+          exit 0
+      - name: Prepare successful build
+        if: ${{ steps.build.outputs.exit_code == '0' }}
+        shell: bash
+        run: |
+          mkdir -p downloadable
+          cp app/build/outputs/apk/debug/app-debug.apk downloadable/DEAD-DISTRICT-3D.apk
+          {
+            echo "Build: SUCCESS"
+            echo "Workflow run: $GITHUB_RUN_ID"
+            echo "Source commit: $GITHUB_SHA"
+            echo "APK size: $(stat -c%s downloadable/DEAD-DISTRICT-3D.apk) bytes"
+            echo "SHA-256: $(sha256sum downloadable/DEAD-DISTRICT-3D.apk | cut -d ' ' -f1)"
+            echo "Package: com.selteck.deaddistrict"
+            echo "Version: 1.0.0"
+          } > downloadable/BUILD-INFO.txt
+      - name: Save failure diagnostics
+        if: ${{ steps.build.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          mkdir -p downloadable
+          {
+            echo "Build: FAILED"
+            echo "Workflow run: $GITHUB_RUN_ID"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Gradle exit code: $BUILD_EXIT_CODE"
+            echo
+            echo "===== LAST 260 LOG LINES ====="
+            tail -n 260 "$RUNNER_TEMP/gradle-build.log"
+          } > downloadable/BUILD-FAILED.txt
+      - name: Publish build file and report to the branch
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloadable/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Record Dead District build result [skip ci]"
+          git push origin HEAD:zombie-apocalypse-3d
+      - name: Upload installable APK artifact
+        if: ${{ steps.build.outputs.exit_code == '0' }}
         uses: actions/upload-artifact@v4
         with:
           name: dead-district-3d-apk
-          path: dist/DEAD-DISTRICT-3D.apk
+          path: downloadable/DEAD-DISTRICT-3D.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Fail job if Android compilation failed
+        if: ${{ steps.build.outputs.exit_code != '0' }}
+        run: exit 1
