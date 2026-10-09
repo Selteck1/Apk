@@ -164,6 +164,8 @@ public class MainActivity extends Activity {
             drawHero(0,4,0.48f,false);
             c.restore();
         }
+        int realmAccent(){int[] a={color("#9E72EF"),color("#E48743"),color("#6ECDF3"),color("#42D8CB"),color("#B49AFF"),color("#F05BA6")};return a[Math.floorMod(region,a.length)];}
+        void tickCombat(){if(tab!=0)return;long now=System.currentTimeMillis();if(Math.abs(enemyX-heroX)>86)enemyX+=heroX>enemyX?0.62f:-0.62f;enemyX=Math.max(55,Math.min(342,enemyX));if(now>=nextEnemyAttack&&Math.abs(enemyX-heroX)<96){nextEnemyAttack=now+(boss?1280:1650);if(now<jumpUntil||now<invulnerableUntil){combatNotice="DODGED";combatNoticeUntil=now+550;play(sClick);}else{int hurt=Math.max(5,(boss?22+region*6:12+region*5+level/4)-actualDefense()/2);hp-=hurt;invulnerableUntil=now+720;flashTicks=4;combatNotice=(boss?"BOSS SMASH":"ENEMY STRIKE")+"  -"+hurt;combatNoticeUntil=now+850;play(sHit);if(hp<=0){hp=Math.max(1,actualMaxHp()/2);gold=Math.max(0,gold-25);heroX=Math.max(60,heroX-38);combo=0;combatNotice="YOU FELL • LOST 25 GOLD";combatNoticeUntil=now+1500;invulnerableUntil=now+1900;}save();}}}
         void drawHero(float x,float y,float s,boolean attackPose){
             c.save();c.translate(x,y);c.scale(s,s);
             glow(0,36,38,color("#6440BC"),18);
@@ -184,7 +186,7 @@ public class MainActivity extends Activity {
             paint(color("#171329"));c.drawOval(-10,-33,10,-21,p);
             glow(-5,-29,3,color("#74E9FF"),4);glow(5,-29,3,color("#74E9FF"),4);
             // blade
-            c.save();c.rotate(attackPose?-45:-23,17,-4);
+            c.save();float swing=attackPose?(-70+(10-hitTicks)*16f):-23f;c.rotate(swing,17,-4);
             paint(color("#8A5AFF"));Path blade=new Path();blade.moveTo(19,-5);blade.lineTo(25,-21);blade.lineTo(30,-48);blade.lineTo(34,-24);blade.lineTo(25,0);blade.close();c.drawPath(blade,p);
             line(20,-3,29,-31,color("#D7C8FF"),2);line(15,-5,26,3,color("#E7C9A0"),3);c.restore();
             c.restore();
@@ -229,6 +231,7 @@ public class MainActivity extends Activity {
             rect(141,580,251,633,color("#24213E"),10);txt("✚ POTION",152,598,10,color("#FFB4CE"),true);txt("Heal 45%",152,613,8,color("#9B94C2"),false);txt("Have: "+potions,152,625,7,color("#9B94C2"),false);
             rect(262,580,372,633,color("#24213E"),10);txt("◈ CASES",273,598,10,color("#A6EDFF"),true);txt("Open loot",273,613,8,color("#9B94C2"),false);txt(casesOpened+" opened",273,625,7,color("#9B94C2"),false);
             rect(18,646,372,715,color("#111324"),10);
+            if(System.currentTimeMillis()<combatNoticeUntil)center(combatNotice,195,420,10,color("#F7D7FF"),true);
             txt("HUNT CONTRACT",30,663,8,color("#A79BCE"),true);
             txt("Defeat "+(questClaimed+5)+" enemies",30,681,11,Color.WHITE,true);
             bar(30,690,204,5,Math.min(1,(kills-questClaimed)/5f),color("#34314E"),color("#B18AFF"));
@@ -240,7 +243,7 @@ public class MainActivity extends Activity {
         void drawEnemy(float x,float y,int type,float scale){
             c.save();c.translate(x,y);c.scale(scale,scale);
             int main=type==1?color("#6A332F"):type==2?color("#37637D"):type==3?color("#4A285E"):type==4?color("#35334B"):color("#25213F");
-            glow(0,14,40,type==2?color("#43C9FF"):color("#B24EFF"),16);
+            glow(0,14,40,type==2?color("#43C9FF"):realmAccent(),16);
             // feet/tendrils
             paint(color("#111222"));Path legs=new Path();
             if(type==2){legs.moveTo(-20,7);legs.lineTo(-32,26);legs.lineTo(-14,22);legs.lineTo(-5,8);legs.lineTo(8,8);legs.lineTo(17,25);legs.lineTo(30,28);legs.lineTo(18,3);}
@@ -254,6 +257,8 @@ public class MainActivity extends Activity {
             paint(type==2?color("#72B9D9"):type==1?color("#9A5148"):color("#4D356F"));c.drawOval(-18,-23,18,10,p);
             // horned skull / face
             paint(color("#171426"));Path head=new Path();head.moveTo(-18,-23);head.lineTo(-21,-42);head.lineTo(-10,-36);head.lineTo(0,-47);head.lineTo(10,-36);head.lineTo(21,-42);head.lineTo(17,-20);head.lineTo(0,-12);head.close();c.drawPath(head,p);
+            if(type==5){paint(color("#A996D3"));Path veil=new Path();veil.moveTo(-13,-14);veil.lineTo(-26,7);veil.lineTo(-14,3);veil.lineTo(-6,20);veil.lineTo(2,3);veil.lineTo(18,14);veil.lineTo(13,-14);veil.close();c.drawPath(veil,p);}
+            if(type==6){paint(color("#7B5A9A"));Path snout=new Path();snout.moveTo(7,-30);snout.lineTo(28,-23);snout.lineTo(13,-17);snout.close();c.drawPath(snout,p);line(-13,-34,-20,-52,color("#C5B0FF"),3);line(4,-35,11,-54,color("#C5B0FF"),3);}
             glow(-8,-29,3,type==2?color("#A6F1FF"):color("#FF5FBA"),5);glow(8,-29,3,type==2?color("#A6F1FF"):color("#FF5FBA"),5);
             paint(color("#F9D9FF"));c.drawOval(-9,-30,-6,-27,p);c.drawOval(6,-30,9,-27,p);
             if(type==4){line(-24,-14,-36,-35,color("#9D88D5"),3);line(24,-14,36,-35,color("#9D88D5"),3);}
@@ -261,17 +266,17 @@ public class MainActivity extends Activity {
         }
         void drawBoss(float x,float y,float scale){
             c.save();c.translate(x,y);c.scale(scale,scale);
-            glow(0,0,65,color("#B52672"),30);
+            glow(0,0,65,realmAccent(),30);
             // crown spikes
             paint(color("#211329"));Path crown=new Path();crown.moveTo(-38,-28);crown.lineTo(-48,-66);crown.lineTo(-22,-49);crown.lineTo(-8,-80);crown.lineTo(4,-48);crown.lineTo(28,-73);crown.lineTo(29,-43);crown.lineTo(45,-54);crown.lineTo(37,-21);crown.close();c.drawPath(crown,p);
             // massive cloak
             paint(color("#171120"));Path cloak=new Path();cloak.moveTo(-35,-26);cloak.lineTo(-51,10);cloak.lineTo(-58,49);cloak.lineTo(-29,36);cloak.lineTo(0,56);cloak.lineTo(26,39);cloak.lineTo(54,49);cloak.lineTo(43,4);cloak.lineTo(34,-27);cloak.close();c.drawPath(cloak,p);
-            paint(color("#4C1E49"));Path armor=new Path();armor.moveTo(-28,-28);armor.lineTo(-19,-44);armor.lineTo(0,-50);armor.lineTo(20,-43);armor.lineTo(30,-23);armor.lineTo(21,15);armor.lineTo(0,31);armor.lineTo(-22,12);armor.close();c.drawPath(armor,p);
+            paint(realmAccent());Path armor=new Path();armor.moveTo(-28,-28);armor.lineTo(-19,-44);armor.lineTo(0,-50);armor.lineTo(20,-43);armor.lineTo(30,-23);armor.lineTo(21,15);armor.lineTo(0,31);armor.lineTo(-22,12);armor.close();c.drawPath(armor,p);
             // runic ribs
-            for(int i=0;i<4;i++){line(-18+i*10,-16,-12+i*8,13,color("#C14B9A"),2);}
+            for(int i=0;i<4;i++){line(-18+i*10,-16,-12+i*8,13,realmAccent(),2);}
             // skull mask
             paint(color("#0A0B17"));Path skull=new Path();skull.moveTo(-22,-37);skull.lineTo(-17,-57);skull.lineTo(0,-65);skull.lineTo(18,-56);skull.lineTo(23,-35);skull.lineTo(12,-18);skull.lineTo(0,-13);skull.lineTo(-13,-20);skull.close();c.drawPath(skull,p);
-            glow(-9,-42,5,color("#FF477E"),10);glow(9,-42,5,color("#FF477E"),10);
+            glow(-9,-42,5,realmAccent(),10);glow(9,-42,5,realmAccent(),10);
             paint(color("#FFE3F0"));c.drawOval(-12,-44,-6,-39,p);c.drawOval(6,-44,12,-39,p);
             // crown highlights, weapon
             line(-38,-28,-47,-56,color("#B78AFF"),2);line(29,-30,28,-62,color("#B78AFF"),2);
@@ -285,6 +290,9 @@ public class MainActivity extends Activity {
             txt("VOIDWALKER",124,210,13,Color.WHITE,true);txt("LEVEL "+level+"  /  "+(level<5?"WAYFARER":level<12?"RIFT HUNTER":"ABYSS SLAYER"),124,228,8,color("#B4A6D9"),true);
             txt("XP "+xp+" / "+xpNeed(),124,246,9,color("#D2B7FF"),true);bar(124,254,220,6,xp/(float)xpNeed(),color("#34304C"),color("#B58BFF"));
             txt("Skill points: "+skillPoints,124,276,9,color("#F0D38A"),true);
+            txt("WPN  "+weaponNames()[weaponId]+"  •  "+rarityName(weaponRarity),124,293,7.5f,rarityColor(weaponRarity),true);
+            txt("ARM  "+armorNames()[armorId]+"  •  "+rarityName(armorRarity),124,307,7.5f,rarityColor(armorRarity),true);
+            txt("Tap left/right side to switch collected gear",124,318,6.5f,color("#777493"),false);
             stat(18,338,"ATTACK POWER",actualAttack(),color("#F1D18B"));stat(198,338,"DEFENSE",actualDefense(),color("#9EE7FF"));
             stat(18,405,"MAX HEALTH",actualMaxHp(),color("#FF9DBB"));stat(198,405,"CRITICAL",crit+"%",color("#C8A5FF"));
             stat(18,472,"BOSS SLAYERS",bossKills,color("#FF9FB8"));stat(198,472,"RELIC SHARDS",shards,color("#9DEBFF"));
@@ -322,6 +330,7 @@ public class MainActivity extends Activity {
             else if(type==1)rarity=roll<25?1:roll<60?2:roll<85?3:roll<97?4:5;
             else rarity=roll<5?2:roll<30?3:roll<75?4:5;
             boolean weapon=rng.nextBoolean();int id=rng.nextInt(8);int power=2+rarity*5+rng.nextInt(4)+region*2;
+            power=Math.max(power,weapon?ownedWeaponPower[id]:ownedArmorPower[id]);
             if(weapon){weaponCollection|=(1<<id);ownedWeaponPower[id]=Math.max(ownedWeaponPower[id],power);ownedWeaponRarity[id]=Math.max(ownedWeaponRarity[id],rarity);prefs.edit().putInt("wp"+id,ownedWeaponPower[id]).putInt("wr"+id,ownedWeaponRarity[id]).apply();
                 if(weaponId==id||power>weaponPower){weaponId=id;weaponPower=power;weaponRarity=rarity;lootNotice="EQUIPPED "+weaponNames()[id];}else{gold+=20+power*3;lootNotice="DISMANTLED "+weaponNames()[id];}}
             else{armorCollection|=(1<<id);ownedArmorPower[id]=Math.max(ownedArmorPower[id],power);ownedArmorRarity[id]=Math.max(ownedArmorRarity[id],rarity);prefs.edit().putInt("ap"+id,ownedArmorPower[id]).putInt("ar"+id,ownedArmorRarity[id]).apply();
