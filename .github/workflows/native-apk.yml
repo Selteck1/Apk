@@ -1,0 +1,56 @@
+name: Build Selteck Native APK
+
+on:
+  push:
+    branches:
+      - selteck-native-apk-build
+    paths:
+      - 'native-apk/**'
+      - '.github/workflows/native-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK, NDK and CMake
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle -p native-apk assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: selteck-native-debug-apk
+          path: native-apk/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Publish APK as a pre-release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: native-apk-${{ github.sha }}
+          name: Selteck Native APK (${{ github.sha }})
+          prerelease: true
+          files: native-apk/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
