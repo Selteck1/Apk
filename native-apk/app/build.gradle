@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.selteck.nativeapk'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ru.selteck.nativeapk'
+        minSdk 23
+        targetSdk 28
+        versionCode 1
+        versionName '1.0'
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++17 -include EGL/egl.h -include cstdint -include cstdio -include cstdlib -include cstring -DRTLD_NOLOCAL=RTLD_LOCAL'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+}
