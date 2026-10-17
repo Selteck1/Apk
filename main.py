@@ -62,11 +62,7 @@ def find_yandex_executable() -> Path:
 
 def yandex_is_running() -> bool:
     """Check for Yandex processes before copying its profile, to avoid a partial copy."""
-    script = (
-        "$p = Get-CimInstance Win32_Process -Filter \\"Name='browser.exe'\\" "
-        "-ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*YandexBrowser*' }; "
-        "if ($p) { exit 0 } else { exit 1 }"
-    )
+    script = r"""$p = Get-CimInstance Win32_Process -Filter "Name='browser.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*YandexBrowser*' }; if ($p) { exit 0 } else { exit 1 }"""
     try:
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-Command", script],
@@ -96,7 +92,7 @@ def selected_profile_name(user_data: Path) -> str:
     if (user_data / "Default").is_dir():
         return "Default"
     raise SystemExit(
-        f"Could not find a Yandex profile folder inside: {user_data}\\n"
+        f"Could not find a Yandex profile folder inside: {user_data}\n"
         "Open Yandex Browser, make sure your VPN extension is installed, then close the browser and retry."
     )
 
@@ -131,7 +127,7 @@ def prepare_yandex_profile() -> tuple[Path, str]:
 
     if not (source / "Local State").is_file():
         raise SystemExit(
-            f"Yandex profile data was not found at:\\n{source}\\n"
+            f"Yandex profile data was not found at:\n{source}\n"
             "Open Yandex Browser at least once and make sure your VPN extension is installed."
         )
 
@@ -139,7 +135,7 @@ def prepare_yandex_profile() -> tuple[Path, str]:
     if yandex_is_running():
         raise SystemExit(
             "For the first setup, fully close Yandex Browser first (Ctrl+Shift+Q), "
-            "including background processes. Then run start.bat again.\\n"
+            "including background processes. Then run start.bat again.\n"
             "The scanner will copy the selected Yandex profile into its own folder; "
             "your normal Yandex profile will remain unchanged."
         )
