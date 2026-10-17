@@ -14,7 +14,7 @@ from typing import Any
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command, CommandObject
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from playwright.async_api import BrowserContext, Page, async_playwright
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
@@ -185,6 +185,8 @@ BOT = Bot(token=CFG["bot_token"])
 DP = Dispatcher()
 PAGE: Page | None = None
 CONTEXT: BrowserContext | None = None
+BROWSER: Browser | None = None
+BROWSER_PROCESS: subprocess.Popen | None = None
 SCANNING = False
 LOCK = asyncio.Lock()
 LAST_ERROR = ""
@@ -618,42 +620,106 @@ async def resetseen_command(message: Message) -> None:
     await message.answer("✅ Duplicate history cleared.")
 
 async def main() -> None:
-    global PAGE, CONTEXT, LAST_ERROR
+    global PAGE, CONTEXT, BROWSER, BROWSER_PROCESS, LAST_ERROR
     load_state()
     executable = find_yandex_executable()
     profile_dir, profile_name = prepare_yandex_profile()
+    debug_port = 9222
     log.info("No my.telegram.org API ID/Hash is used. Sign in manually in the browser.")
-    log.info("Launching Yandex Browser so its VPN extension can be used.")
+    log.info("Starting Yandex Browser directly, with its VPN extension enabled, then attaching the scanner via CDP.")
+
+    # Launch Yandex itself (not Playwright's browser launcher), so extensions use their normal startup path.
+    launch_args = [
+        str(executable),
+        f"--user-data-dir={profile_dir}",
+        f"--profile-directory={profile_name}",
+        f"--remote-debugging-port={debug_port}",
+        "--remote-debugging-address=127.0.0.1",
+        "--remote-allow-origins=*",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--start-maximized",
+        "https://web.telegram.org/k/",
+    ]
+
     async with async_playwright() as p:
-        CONTEXT = await p.chromium.launch_persistent_context(
-            user_data_dir=str(profile_dir),
-            executable_path=str(executable),
-            headless=False,
-            viewport=None,
-            # Playwright disables extensions by default; re-enable the extensions in the copied Yandex profile.
-            ignore_default_args=["--disable-extensions"],
-            args=[f"--profile-directory={profile_name}", "--start-maximized"],
+        BROWSER_PROCESS = subprocess.Popen(
+            launch_args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
-        PAGE = CONTEXT.pages[0] if CONTEXT.pages else await CONTEXT.new_page()
-        if PAGE.url == "about:blank":
+
+        last_attach_error: Exception | None = None
+        for _ in range(45):
+            if BROWSER_PROCESS.poll() is not None:
+                raise SystemExit(
+                    "Yandex Browser closed during startup. Check that the Yandex installation and profile are valid."
+                )
             try:
-                await PAGE.goto("https://web.telegram.org/k/", wait_until="domcontentloaded", timeout=45000)
+                BROWSER = await p.chromium.connect_over_cdp(
+                    f"http://127.0.0.1:{debug_port}",
+                    timeout=2500,
+                )
+                break
+            except Exception as exc:
+                last_attach_error = exc
+                await asyncio.sleep(1)
+
+        if BROWSER is None:
+            raise SystemExit(
+                "Could not connect the scanner to Yandex Browser on port 9222. "
+                "Close any old scanner windows and run start.bat again. "
+                f"Last connection error: {last_attach_error}"
+            )
+
+        if not BROWSER.contexts:
+            raise SystemExit("Yandex started, but no browser context was exposed through the debugging connection.")
+        CONTEXT = BROWSER.contexts[0]
+        pages = CONTEXT.pages
+        PAGE = next(
+            (page for page in pages if page.url.startswith("https://web.telegram.org/")),
+            pages[0] if pages else await CONTEXT.new_page(),
+        )
+
+        # A navigation timeout must not kill the notification bot; the user can enable VPN and retry /openweb.
+        if not PAGE.url.startswith("https://web.telegram.org/"):
+            try:
+                await PAGE.goto(
+                    "https://web.telegram.org/k/",
+                    wait_until="domcontentloaded",
+                    timeout=45000,
+                )
+                LAST_ERROR = ""
             except Exception as exc:
                 LAST_ERROR = f"{type(exc).__name__}: {exc}"
                 log.warning(
                     "Telegram Web did not load at startup: %s. The bot will still start; "
-                    "enable the VPN extension in the Yandex window, then send /openweb.",
+                    "enable the VPN extension in this Yandex window and send /openweb.",
                     LAST_ERROR,
                 )
+
         bot_task = asyncio.create_task(DP.start_polling(BOT, drop_pending_updates=True))
         scan_task = asyncio.create_task(scan_loop())
-        log.info("Yandex Browser opened. Make sure its VPN extension is connected, sign in if asked, and open the gift resale list.")
+        log.info(
+            "Yandex Browser attached. Make sure its VPN extension is ON, sign in if asked, "
+            "and open the gift resale list."
+        )
         try:
             await asyncio.gather(bot_task, scan_task)
         finally:
             for task in (bot_task, scan_task):
                 task.cancel()
-            await CONTEXT.close()
+            if CONTEXT is not None:
+                try:
+                    await CONTEXT.close()
+                except Exception:
+                    pass
+            if BROWSER_PROCESS is not None and BROWSER_PROCESS.poll() is None:
+                BROWSER_PROCESS.terminate()
+                try:
+                    BROWSER_PROCESS.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    BROWSER_PROCESS.kill()
             await BOT.session.close()
 
 if __name__ == "__main__":
