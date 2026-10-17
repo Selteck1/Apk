@@ -1,0 +1,13 @@
+{
+  "bot_token": "PASTE_BOTFATHER_TOKEN_HERE",
+  "admin_id": 0,
+  "collection": "Chill Flame",
+  "collection_slug": "",
+  "min_price": 0,
+  "max_price": 500,
+  "model": "",
+  "backdrop": "",
+  "pattern": "",
+  "interval_seconds": 15,
+  "max_alerts_per_scan": 5
+}
