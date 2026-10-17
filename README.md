@@ -8,7 +8,7 @@ This is a user-interface automation MVP, not an official Telegram market API. Te
 When a number is detected, the program forms a link using the common pattern https://t.me/nft/CollectionSlug-Number. Check the first generated link against Telegram's Copy Link menu before relying on it. Unknown cards are skipped rather than fabricating a number. There are no automated purchases.
 
 ## Setup
-1. Install Python 3.11 or newer on Windows.
+1. Use Python 3.12 on Windows. The launcher checks for Python 3.12 and tries to install it with pymanager if available. Python 3.15 may lack prebuilt wheels for required dependencies, and pip may require Visual C++ and Rust.
 2. Create a notification bot with @BotFather and copy its bot token.
 3. Extract the ZIP to a folder you control.
 4. Run start.bat. First run creates config.json and opens it in Notepad.
