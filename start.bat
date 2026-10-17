@@ -52,8 +52,7 @@ python -m pip install --upgrade pip
 if errorlevel 1 goto error
 python -m pip install -r requirements.txt
 if errorlevel 1 goto error
-python -m playwright install chromium
-if errorlevel 1 goto error
+echo Launching Yandex Browser and using its VPN extension...
 python main.py
 if errorlevel 1 goto error
 goto end
