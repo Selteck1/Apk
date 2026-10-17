@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,7 +19,7 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
 EXAMPLE_PATH = ROOT / "config.example.json"
-PROFILE_DIR = ROOT / "browser-profile"
+PROFILE_DIR = ROOT / "yandex-browser-profile"
 STATE_PATH = ROOT / "state.json"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -35,6 +38,134 @@ DEFAULTS: dict[str, Any] = {
     "interval_seconds": 15,
     "max_alerts_per_scan": 5,
 }
+
+
+def find_yandex_executable() -> Path:
+    """Find the installed Yandex Browser executable on Windows."""
+    roots = [
+        os.environ.get("LOCALAPPDATA", ""),
+        os.environ.get("PROGRAMFILES", ""),
+        os.environ.get("PROGRAMFILES(X86)", ""),
+    ]
+    candidates = [
+        Path(root) / "Yandex" / "YandexBrowser" / "Application" / "browser.exe"
+        for root in roots if root
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise SystemExit(
+        "Yandex Browser was not found. Install/start Yandex Browser once, "
+        "then run start.bat again. This scanner needs the Yandex browser with your VPN extension."
+    )
+
+
+def yandex_is_running() -> bool:
+    """Check for Yandex processes before copying its profile, to avoid a partial copy."""
+    script = (
+        "$p = Get-CimInstance Win32_Process -Filter \\"Name='browser.exe'\\" "
+        "-ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*YandexBrowser*' }; "
+        "if ($p) { exit 0 } else { exit 1 }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=8,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def selected_profile_name(user_data: Path) -> str:
+    """Read the active Yandex profile folder from Chromium's Local State file."""
+    try:
+        state = json.loads((user_data / "Local State").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        state = {}
+    profile_state = state.get("profile", {}) if isinstance(state, dict) else {}
+    last_used = str(profile_state.get("last_used") or "Default")
+    if (user_data / last_used).is_dir():
+        return last_used
+    for name in (profile_state.get("info_cache") or {}):
+        if (user_data / str(name)).is_dir():
+            return str(name)
+    if (user_data / "Default").is_dir():
+        return "Default"
+    raise SystemExit(
+        f"Could not find a Yandex profile folder inside: {user_data}\\n"
+        "Open Yandex Browser, make sure your VPN extension is installed, then close the browser and retry."
+    )
+
+
+def ignore_yandex_cache(_directory: str, names: list[str]) -> set[str]:
+    # Keep cookies, extension settings and local storage; omit bulky disposable caches.
+    disposable = {
+        "Cache", "Code Cache", "GPUCache", "GrShaderCache", "ShaderCache",
+        "DawnCache", "Crashpad", "Crash Reports", "BrowserMetrics",
+        "component_crx_cache", "Safe Browsing", "OptimizationGuidePredictionModels",
+        "Media Cache", "SingletonLock", "SingletonCookie", "SingletonSocket",
+    }
+    return {name for name in names if name in disposable}
+
+
+def prepare_yandex_profile() -> tuple[Path, str]:
+    """
+    Create an isolated copy of the user's selected Yandex profile.
+    The original profile is not launched or modified by the scanner.
+    """
+    source = Path(os.environ.get("LOCALAPPDATA", "")) / "Yandex" / "YandexBrowser" / "User Data"
+    target = PROFILE_DIR
+
+    # Reuse an already prepared scanner profile on later launches.
+    if (target / "Local State").is_file():
+        try:
+            active = selected_profile_name(target)
+            if (target / active).is_dir():
+                return target, active
+        except SystemExit:
+            pass
+
+    if not (source / "Local State").is_file():
+        raise SystemExit(
+            f"Yandex profile data was not found at:\\n{source}\\n"
+            "Open Yandex Browser at least once and make sure your VPN extension is installed."
+        )
+
+    profile_name = selected_profile_name(source)
+    if yandex_is_running():
+        raise SystemExit(
+            "For the first setup, fully close Yandex Browser first (Ctrl+Shift+Q), "
+            "including background processes. Then run start.bat again.\\n"
+            "The scanner will copy the selected Yandex profile into its own folder; "
+            "your normal Yandex profile will remain unchanged."
+        )
+
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+    target.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.copy2(source / "Local State", target / "Local State")
+        shutil.copytree(
+            source / profile_name,
+            target / profile_name,
+            ignore=ignore_yandex_cache,
+            dirs_exist_ok=True,
+        )
+    except Exception as exc:
+        shutil.rmtree(target, ignore_errors=True)
+        raise SystemExit(
+            "Could not copy the Yandex profile. Close Yandex completely and run start.bat again. "
+            f"Details: {type(exc).__name__}: {exc}"
+        ) from exc
+
+    log.info("Copied Yandex profile '%s' into an isolated scanner profile.", profile_name)
+    log.info("The copy stays local in %s and is excluded from Git.", target)
+    return target, profile_name
+
 
 def load_config() -> dict[str, Any]:
     if not CONFIG_PATH.exists():
@@ -463,15 +594,25 @@ async def status_command(message: Message) -> None:
 
 @DP.message(Command("openweb"))
 async def openweb_command(message: Message) -> None:
-    global PAGE
+    global PAGE, LAST_ERROR
     if not await admin_only(message): return
     if CONTEXT is None:
         await message.answer("Browser is starting. Try again in a few seconds.")
         return
     if PAGE is None or PAGE.is_closed():
         PAGE = await CONTEXT.new_page()
-    await PAGE.goto("https://web.telegram.org/k/", wait_until="domcontentloaded")
-    await message.answer("Opened Telegram Web. Sign in manually, then open a gift resale list.")
+    try:
+        await PAGE.goto("https://web.telegram.org/k/", wait_until="domcontentloaded", timeout=45000)
+        LAST_ERROR = ""
+        await message.answer("Telegram Web opened. Sign in if needed, then open a gift resale list.")
+    except Exception as exc:
+        LAST_ERROR = f"{type(exc).__name__}: {exc}"
+        log.warning("Telegram Web did not load: %s", LAST_ERROR)
+        await message.answer(
+            "Не удалось загрузить Telegram Web. Проверь, что VPN-расширение включено в окне Яндекс Браузера, "
+            "и повтори /openweb.\n\n"
+            f"Ошибка: {type(exc).__name__}: {exc}"
+        )
 
 @DP.message(Command("resetseen"))
 async def resetseen_command(message: Message) -> None:
@@ -481,23 +622,36 @@ async def resetseen_command(message: Message) -> None:
     await message.answer("✅ Duplicate history cleared.")
 
 async def main() -> None:
-    global PAGE, CONTEXT
+    global PAGE, CONTEXT, LAST_ERROR
     load_state()
-    PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    executable = find_yandex_executable()
+    profile_dir, profile_name = prepare_yandex_profile()
     log.info("No my.telegram.org API ID/Hash is used. Sign in manually in the browser.")
+    log.info("Launching Yandex Browser so its VPN extension can be used.")
     async with async_playwright() as p:
         CONTEXT = await p.chromium.launch_persistent_context(
-            user_data_dir=str(PROFILE_DIR),
+            user_data_dir=str(profile_dir),
+            executable_path=str(executable),
             headless=False,
             viewport=None,
-            args=["--start-maximized"],
+            # Playwright disables extensions by default; re-enable the extensions in the copied Yandex profile.
+            ignore_default_args=["--disable-extensions"],
+            args=[f"--profile-directory={profile_name}", "--start-maximized"],
         )
         PAGE = CONTEXT.pages[0] if CONTEXT.pages else await CONTEXT.new_page()
         if PAGE.url == "about:blank":
-            await PAGE.goto("https://web.telegram.org/k/", wait_until="domcontentloaded")
+            try:
+                await PAGE.goto("https://web.telegram.org/k/", wait_until="domcontentloaded", timeout=45000)
+            except Exception as exc:
+                LAST_ERROR = f"{type(exc).__name__}: {exc}"
+                log.warning(
+                    "Telegram Web did not load at startup: %s. The bot will still start; "
+                    "enable the VPN extension in the Yandex window, then send /openweb.",
+                    LAST_ERROR,
+                )
         bot_task = asyncio.create_task(DP.start_polling(BOT, drop_pending_updates=True))
         scan_task = asyncio.create_task(scan_loop())
-        log.info("Browser opened. Sign in to Telegram Web and open the gift resale list.")
+        log.info("Yandex Browser opened. Make sure its VPN extension is connected, sign in if asked, and open the gift resale list.")
         try:
             await asyncio.gather(bot_task, scan_task)
         finally:
