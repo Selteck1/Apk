@@ -3,14 +3,29 @@ setlocal
 cd /d "%~dp0"
 title Telegram Web Gift Scanner
 
-where python >nul 2>nul
-if errorlevel 1 goto no_python
+echo Looking for a Python 3.12 runtime...
+set "BASEPY="
 
-python --version
-if errorlevel 1 goto no_runtime
+if exist "%LocalAppData%\Python\pythoncore-3.12-64\python.exe" set "BASEPY=%LocalAppData%\Python\pythoncore-3.12-64\python.exe"
+if not defined BASEPY if exist "%LocalAppData%\Programs\Python\Python312\python.exe" set "BASEPY=%LocalAppData%\Programs\Python\Python312\python.exe"
+if not defined BASEPY if exist "C:\Program Files\Python312\python.exe" set "BASEPY=C:\Program Files\Python312\python.exe"
 
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)"
-if errorlevel 1 goto old_python
+if not defined BASEPY (
+  where pymanager >nul 2>nul
+  if not errorlevel 1 (
+    echo Installing the Python 3.12 runtime with Python Install Manager...
+    pymanager install 3.12
+    if errorlevel 1 goto no_supported_python
+    for /f "delims=" %%P in ('pymanager list --format=exe 3.12 2^>nul') do if not defined BASEPY set "BASEPY=%%P"
+  )
+)
+
+if not defined BASEPY goto no_supported_python
+
+echo Using:
+echo %BASEPY%
+"%BASEPY%" --version
+if errorlevel 1 goto no_supported_python
 
 if not exist "config.json" (
   copy "config.example.json" "config.json" >nul
@@ -18,8 +33,17 @@ if not exist "config.json" (
   notepad "config.json"
 )
 
+rem Recreate the local environment if it was made with Python 3.15 or another version.
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)"
+  if errorlevel 1 (
+    echo Replacing the old project virtual environment with Python 3.12...
+    rmdir /s /q ".venv"
+  )
+)
+
 if not exist ".venv\Scripts\python.exe" (
-  python -m venv .venv
+  "%BASEPY%" -m venv ".venv"
   if errorlevel 1 goto error
 )
 
@@ -34,24 +58,12 @@ python main.py
 if errorlevel 1 goto error
 goto end
 
-:no_python
-echo The "python" command was not found in PATH.
-echo Open CMD and run: where python
-echo If Python is installed, add its installation folder to your user PATH.
-pause
-exit /b 1
-
-:no_runtime
-echo Windows found a python.exe command, but it could not start a Python runtime.
-echo Run: python --version
-echo If Python Install Manager is installed, install a runtime with: py install 3.12
-echo If the "py" command is unavailable, install Python 3.12 from https://www.python.org/downloads/windows/
-pause
-exit /b 1
-
-:old_python
-echo Python 3.11 or newer is required.
-echo Download Python from https://www.python.org/downloads/windows/
+:no_supported_python
+echo.
+echo Python 3.12 is required for reliable binary wheels.
+echo If pymanager was found, its attempt to install Python 3.12 may have failed.
+echo Install Python 3.12 from https://www.python.org/downloads/release/python-31210/
+echo Then run start.bat again. Do not install Visual C++ just for this app.
 pause
 exit /b 1
 
