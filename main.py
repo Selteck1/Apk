@@ -116,13 +116,16 @@ def prepare_yandex_profile() -> tuple[Path, str]:
     source = Path(os.environ.get("LOCALAPPDATA", "")) / "Yandex" / "YandexBrowser" / "User Data"
     target = PROFILE_DIR
 
-    # Reuse an already prepared scanner profile on later launches.
-    if (target / "Local State").is_file():
+    # Reuse the isolated profile only if it was copied by the current setup version.
+    # The marker forces one refresh for users upgrading from the earlier Playwright-launched build.
+    marker = target / ".yandex-profile-version"
+    if (target / "Local State").is_file() and marker.is_file():
         try:
-            active = selected_profile_name(target)
-            if (target / active).is_dir():
-                return target, active
-        except SystemExit:
+            if marker.read_text(encoding="utf-8").strip() == "2":
+                active = selected_profile_name(target)
+                if (target / active).is_dir():
+                    return target, active
+        except (OSError, SystemExit):
             pass
 
     if not (source / "Local State").is_file():
@@ -158,6 +161,7 @@ def prepare_yandex_profile() -> tuple[Path, str]:
             f"Details: {type(exc).__name__}: {exc}"
         ) from exc
 
+    marker.write_text("2", encoding="utf-8")
     log.info("Copied Yandex profile '%s' into an isolated scanner profile.", profile_name)
     log.info("The copy stays local in %s and is excluded from Git.", target)
     return target, profile_name
